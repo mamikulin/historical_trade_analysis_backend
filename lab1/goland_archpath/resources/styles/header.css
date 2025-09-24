@@ -1,0 +1,36 @@
+header{
+    background-color: #FFFF64;
+    justify-content: center;
+    display: flex;
+    width: 100vw;
+    height: 80px;
+
+    top: 0;
+    position: fixed;
+
+
+}
+
+.headerContent{
+    width: 80%;
+    justify-content:space-between;
+    
+}
+
+header *{
+    display: flex;
+    align-items: center;
+}
+
+.logo{
+    width: 39px;
+    display: flex;
+}
+
+.logo img{
+    transform: rotateY(180deg);
+}
+
+.nav{
+    gap: 8px;
+}

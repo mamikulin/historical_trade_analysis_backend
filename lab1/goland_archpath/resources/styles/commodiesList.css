@@ -1,0 +1,7 @@
+.commodiesList { 
+    width: 80%;
+    justify-content:space-between;
+    flex-direction: column;
+
+    margin-top: 60px;
+}
