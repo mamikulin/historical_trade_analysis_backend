@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>АрхМаршрут | Проект {{ .cart.SiteName }}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/static/styles/main.css">
+    <link rel="stylesheet" href="/static/styles/mainPage.css">
+    <link rel="stylesheet" href="/static/styles/header.css">
+</head>
+<body>
+    <header>
+        <div class="headerContent">
+            <div class="logo">
+                <img src="/static/img/logo.svg" alt="logo">
+                <div class="name">
+                    <a href="/"><h1>АрхМаршрут</h1></a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="controls" style="margin-bottom: 20px;">
+            <label for="region-input" style="display: block; font-size: 14px; font-weight: 600; color: var(--text-dark); margin-bottom: 8px;">
+                Название памятника:
+            </label>
+            <div class="searchbar">
+                <input type="text" 
+                       id="region-input" 
+                       name="region"
+                       placeholder="Введите название памятника" 
+                       style="width: 100%; padding: 12px 20px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px;">
+                </div>
+        </div>
+
+        <div class="controls" style="margin-bottom: 40px;">
+            <form action="/cart/{{ .cart.CartID }}">
+                <div class="searchbar" style="display: flex; align-items: center; gap: 10px;">
+                    <input type="text" 
+                           placeholder="Комментарий к заявке" 
+                           style="flex-grow: 1; padding: 12px 20px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px;">
+                    <button class="btn yellow" type="submit" style="flex-shrink: 0; padding: 12px 25px;">
+                        <h2>Сохранить</h2>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="pageTitle" style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);">
+            <h2 style="font-size: 24px; font-weight: 600; color: var(--text-dark);">
+                Категорий товаров в заявке:  <span style="color: var(--primary-color);">{{ .cart.TotalEntryCount }}</span>
+            </h2>
+        </div>
+
+        <div class="commodiesList" style="display: block;"> {{ range .cart.Entries }}
+            <div class="artifact" style="display: flex; align-items: center; padding: 15px; border-bottom: 1px solid var(--border-color); box-shadow: none; border-radius: 0; margin-bottom: 0;">
+                
+                <div class="image" style="width: 100px; height: 80px; flex-shrink: 0; margin-right: 20px; border-radius: 4px;">
+                    <img src="{{ .ArtifactImageURL }}" alt="{{ .ArtifactName }}">
+                </div>
+
+                <div class="info" style="flex-grow: 1; padding: 0;">
+                    <div class="name">
+                        <h1 style="font-size: 16px; font-weight: 700; min-height: auto; margin-bottom: 5px;">{{ .ArtifactName }}</h1>
+                        <div class="count">
+                            <h3 style="font-size: 13px; font-weight: 700; color: var(--primary-color);">
+                                Количество фрагментов: {{ .ArtifactQuantity }}
+                            </h3>
+                        </div>
+                    </div>
+                    <div class="origin" style="margin-top: 10px;">
+                        <h2 style="font-size: 13px; font-weight: 500;">Регион: {{ .ArtifactRegion }}</h2>
+                        <h3 style="font-size: 12px; font-weight: 400;">Период: {{ .ArtifactPeriod }}</h3>
+                    </div>
+                </div>
+
+                <div class="actions" style="flex-shrink: 0; width: 250px; display: flex; gap: 10px; padding: 0;">
+                    <a href="/artifact/{{ .ArtifactID }}" style="flex-basis: 50%;">
+                        <button class="btn yellow" style="width: 100%; padding: 10px 15px;">
+                            <h2>Подробнее</h2>
+                        </button>
+                    </a>
+                    <button class="delete btn red" style="flex-basis: 50%; padding: 10px 15px;">
+                        <h2>Удалить</h2>
+                    </button>
+                </div>
+            </div>
+            {{ end }}
+        </div>
+    </main>
+</body>
+</html>

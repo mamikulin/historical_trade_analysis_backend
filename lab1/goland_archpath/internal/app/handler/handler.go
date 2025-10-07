@@ -4,11 +4,12 @@ import (
 	"archpath/internal/app/repository"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 )
+
+const activeCartID = "abc"
 
 type Handler struct {
 	Repository *repository.Repository
@@ -20,77 +21,83 @@ func NewHandler(r *repository.Repository) *Handler {
 	}
 }
 
-func (h *Handler) GetCommodities(ctx *gin.Context) {
-	var commodities []repository.Commodity
-	var err error
+func (h *Handler) getCartStatus() (cartID string, analisedCount int) {
+	cartID = activeCartID
+	cartData, err := h.Repository.GetExcavationCart(cartID)
 
-	searchQuery := ctx.Query("query")
-	if searchQuery == "" {
-		commodities, err = h.Repository.GetCommodities()
-		if err != nil {
-			logrus.Error(err)
-		}
-	} else {
-		commodities, err = h.Repository.GetCommoditiesByName(searchQuery)
-		if err != nil {
-			logrus.Error(err)
-		}
+	if err != nil {
+		logrus.Warnf("Could not fetch cart data %s for count: %v", cartID, err)
+		return cartID, 0
 	}
 
-	analysedCommodities := h.getAnalisedCommodities()
-	analisedCount := len(analysedCommodities)
+	if count, ok := cartData["TotalEntryCount"].(int); ok {
+		analisedCount = count
+	}
+	return cartID, analisedCount
+}
 
-	ctx.HTML(http.StatusOK, "listCommodities.html", gin.H{
-		"time":          time.Now().Format("15:04:05"),
+func (h *Handler) GetArtifactTypes(ctx *gin.Context) {
+	searchQuery := ctx.Query("query")
+	var commodities []repository.Artifact
+	var err error
+
+	if searchQuery == "" {
+		commodities, err = h.Repository.GetCommodities()
+	} else {
+		commodities, err = h.Repository.GetCommoditiesByName(searchQuery)
+	}
+
+	if err != nil {
+		logrus.Error("Error fetching artifact list:", err)
+		commodities = []repository.Artifact{}
+	}
+
+	cartID, analisedCount := h.getCartStatus()
+
+	ctx.HTML(http.StatusOK, "mainPage.html", gin.H{
 		"commodities":   commodities,
 		"query":         searchQuery,
 		"analisedCount": analisedCount,
+		"cartID":        cartID,
 	})
 }
 
-func (h *Handler) GetAnalysisPage(ctx *gin.Context) {
-	analysedCommodities := h.getAnalisedCommodities()
-	analisedCount := len(analysedCommodities)
-
-	ctx.HTML(http.StatusOK, "analysis.html", gin.H{
-		"time":             time.Now().Format("15:04:05"),
-		"commoditiesCount": analisedCount,
-		"commodities":      analysedCommodities,
-	})
-}
-
-func (h *Handler) GetCommodity(ctx *gin.Context) {
+func (h *Handler) GetArtifactTypeDetails(ctx *gin.Context) {
 	idStr := ctx.Param("id")
-
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		logrus.Error(err)
+		logrus.Error("Invalid artifact ID:", err)
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
 	}
 
-	commodity, err := h.Repository.GetCommodity(id)
+	artifact, err := h.Repository.GetArtifact(id)
 	if err != nil {
-		logrus.Error(err)
+		logrus.Error("Error fetching artifact details:", err)
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
 	}
 
-	ctx.HTML(http.StatusOK, "commodity.html", gin.H{
-		"commodity": commodity,
+	cartID, analisedCount := h.getCartStatus()
+
+	ctx.HTML(http.StatusOK, "detailsPage.html", gin.H{
+		"artifact":      artifact,
+		"analisedCount": analisedCount,
+		"cartID":        cartID,
 	})
 }
 
-func (h *Handler) getAnalisedCommodities() []repository.Commodity {
-	allCommodities, err := h.Repository.GetCommodities()
+func (h *Handler) GetExcavationCart(ctx *gin.Context) {
+	cartID := ctx.Param("id")
+
+	cartData, err := h.Repository.GetExcavationCart(cartID)
 	if err != nil {
-		return []repository.Commodity{}
+		logrus.Error("Error fetching cart data:", err)
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
 	}
-	return allCommodities[:4]
-}
 
-func (h *Handler) getAnalisedCount(ctx *gin.Context) {
-
-	analisedCommodities := h.getAnalisedCommodities()
-	analisedCount := len(analisedCommodities)
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"count": analisedCount,
+	ctx.HTML(http.StatusOK, "cartPage.html", gin.H{
+		"cart": cartData,
 	})
 }

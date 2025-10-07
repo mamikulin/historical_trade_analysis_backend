@@ -18,16 +18,16 @@ func StartServer() {
 		logrus.Error("Ошибка инициализации репозитория")
 	}
 
-	handler := handler.NewHandler(repo)
+	h := handler.NewHandler(repo)
 
 	r := gin.Default()
 
 	r.LoadHTMLGlob("../../templates/*")
-	r.Static("./static", "../../resources")
+	r.Static("/static", "../../resources")
 
-	r.GET("/", handler.GetCommodities)
-	r.GET("/commodity/:id", handler.GetCommodity)
-	r.GET("/analysis", handler.GetAnalysisPage)
+	r.GET("/", h.GetArtifactTypes)
+	r.GET("/artifact/:id", h.GetArtifactTypeDetails)
+	r.GET("/cart/:id", h.GetExcavationCart)
 
 	r.Run()
 	log.Println("Server down")

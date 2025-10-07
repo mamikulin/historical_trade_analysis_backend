@@ -1,0 +1,157 @@
+.searchSection {
+    background-color: var(--primary-color);
+    padding: 25px 0;
+}
+
+.searchContent {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.searchbar {
+    flex: 1;
+    position: relative;
+}
+
+.searchbar input {
+    width: 100%;
+    padding: 12px 50px 12px 20px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.search-btn {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    color: var(--text-medium);
+}
+
+.commodiesList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 30px;
+}
+
+.artifact {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: transform 0.3s, box-shadow 0.3s;
+    cursor: pointer;
+}
+
+
+.origin h2 {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-medium);
+    margin-bottom: 5px;
+}
+
+.origin h3 {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-light);
+}
+
+.info {
+    padding: 20px;
+}
+
+.name h1 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 12px;
+    line-height: 1.4;
+    min-height: 44px; /* Сохраняет место для 2 строк */
+}
+
+.actions {
+    padding: 0 20px 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.btn {
+    flex: 1;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background-color 0.3s;
+    text-align: center;
+}
+
+.btn h2 {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.yellow {
+    background-color: var(--accent-yellow);
+    color: #8b7355;
+}
+
+.yellow:hover {
+    background-color: #e8dcc5;
+}
+
+.red {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.red:hover {
+    background-color: #6a8a66;
+}
+
+/* Корзина (Cart) */
+.cart {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background-color: var(--primary-color);
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: transform 0.3s;
+    z-index: 100; 
+}
+
+.cart img {
+    width: 28px;
+    height: 28px;
+    filter: brightness(0) invert(1);
+}
+
+.analisedCount {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: var(--accent-red);
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 700;
+}

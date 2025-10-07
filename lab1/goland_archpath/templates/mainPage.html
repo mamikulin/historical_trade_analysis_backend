@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>АрхМаршрут | Каталог находок</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="/static//styles/main.css">
+    <link rel="stylesheet" href="/static//styles/mainPage.css">
+    <link rel="stylesheet" href="/static//styles/header.css">
+</head>
+<body>
+    <header>
+        <div class="headerContent">
+            <div class="logo">
+                <img src="/static/img/logo.svg" alt="logo">
+                <div class="name">
+                    <a href="/"><h1>АрхМаршрут</h1></a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="searchSection">
+        <div class="searchContent">
+            <form action="/" style="flex: 1;">
+                <div class="searchbar">
+                    <input type="text" name="query" placeholder="Поиск по каталогу" value="{{ .query }}">
+                    <button type="submit" class="search-btn">Искать</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <main>
+        <div class="pageTitle">
+            <h1>Категории товаров: </h1>
+        </div>
+
+
+        <div class="commodiesList">
+            {{ range .commodities }}
+            <div class="artifact">
+                <div class="image">
+                    <img src="{{ .Image }}" alt="{{ .Name }}">
+                </div>
+                <div class="info">
+                    <div class="name">
+                        <h1>{{ .Name }}</h1>
+                    </div>
+                    <div class="origin">
+                        <h2>Центр: {{ .Region }}</h2>
+                        <h3>Период: {{ .Period }}</h3>
+                    </div>
+                </div>
+                <div class="actions">
+                    <a href="/artifact/{{ .ID }}">
+                        <button class="btn yellow">
+                            <h2>Подробнее</h2>
+                        </button>
+                    </a>
+                    <button class="btn red">
+                        <h2>В анализ</h2>
+                    </button>
+                </div>
+            </div>
+            {{ end }}
+        </div>
+    </main>
+
+    {{ if gt .analisedCount 0 }}
+    <div class="cart">
+        <div class="analisedCount">{{ .analisedCount }}</div>
+        <a href="/cart/{{ .cartID }}">
+            <img src="/static/img/cart.svg" alt="cart">
+        </a>
+    </div>
+    {{ end }}
+</body>
+</html>
