@@ -37,7 +37,7 @@
 
     <main>
         <div class="pageTitle">
-            <h1>Категории товаров: </h1>
+            <h1>Категорий товаров: <span style="color: var(--primary-color);">{{ len .commodities }}</span></h1>
         </div>
 
 
@@ -45,7 +45,7 @@
             {{ range .commodities }}
             <div class="artifact">
                 <div class="image">
-                    <img src="{{ .Image }}" alt="{{ .Name }}">
+                    <img src="{{ or .ImageURL "https://placehold.co/200x150/6366f1/white?text=Artifact" }}" alt="{{ .Name }}">
                 </div>
                 <div class="info">
                     <div class="name">
@@ -62,11 +62,17 @@
                             <h2>Подробнее</h2>
                         </button>
                     </a>
-                    <button class="btn red">
-                        <h2>В анализ</h2>
-                    </button>
+                    <form action="/cart/add" method="POST">
+                        <input type="hidden" name="artifact_id" value="{{ .ID }}">
+                        <input type="hidden" name="quantity" value="1">
+                        <button class="btn red" type="submit">
+                            <h2>В анализ</h2>
+                        </button>
+                    </form>
                 </div>
             </div>
+            {{ else }}
+                <p>Артефакты не найдены.</p>
             {{ end }}
         </div>
     </main>

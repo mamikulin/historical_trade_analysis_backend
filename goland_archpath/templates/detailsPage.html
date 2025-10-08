@@ -37,7 +37,7 @@
         
         <div class="artifact-detail-overview" style="display: flex; gap: 40px; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
             <div class="image" style="flex-shrink: 0; width: 400px; height: 400px; border-radius: 4px; overflow: hidden;">
-                <img src="{{.artifact.Image}}" alt="{{.artifact.Name}}">
+                <img src="{{ or .artifact.ImageURL "https://placehold.co/400x400/6366f1/white?text=Artifact" }}" alt="{{.artifact.Name}}">
             </div>
             
             <div class="info" style="flex-grow: 1; padding: 0;">
@@ -45,11 +45,17 @@
                     <h2>Регион:</h2>
                     <h3>{{ .artifact.Region }}</h3>
                 </div>
+               
 
                 <div class="actions" style="margin-top: 20px; padding: 0;">
-                    <button class="btn red">
-                        <h2>В анализ</h2>
-                    </button>
+                    <form action="/cart/add" method="POST" style="display: flex; align-items: center;">
+                        <input type="hidden" name="artifact_id" value="{{ .artifact.ID }}">
+                        <label for="quantity-details" style="display: block; margin-right: 8px;">Количество:</label>
+                        <input type="number" name="quantity" id="quantity-details" value="1" min="1" style="width: 100px; padding: 8px; border: 1px solid #ccc; border-radius: 5px; margin-right: 10px;">
+                        <button class="btn red" type="submit">
+                            <h2>В анализ</h2>
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

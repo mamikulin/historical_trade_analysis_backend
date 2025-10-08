@@ -1,15 +1,17 @@
 package handler
 
 import (
+	"archpath/internal/app/models"
 	"archpath/internal/app/repository"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
-const activeCartID = "abc"
+const activeUserID = 1
 
 type Handler struct {
 	Repository *repository.Repository
@@ -21,83 +23,241 @@ func NewHandler(r *repository.Repository) *Handler {
 	}
 }
 
-func (h *Handler) getCartStatus() (cartID string, analisedCount int) {
-	cartID = activeCartID
-	cartData, err := h.Repository.GetExcavationCart(cartID)
-
+func (h *Handler) getCartStatus() (cartID uint, entryCount int) {
+	cart, err := h.Repository.GetSiteCartByUser(activeUserID, "draft")
 	if err != nil {
-		logrus.Warnf("Could not fetch cart data %s for count: %v", cartID, err)
-		return cartID, 0
+		if err != gorm.ErrRecordNotFound {
+			logrus.Errorf("Error searching for draft cart: %v", err)
+		}
+		return 0, 0
 	}
 
-	if count, ok := cartData["TotalEntryCount"].(int); ok {
-		analisedCount = count
-	}
-	return cartID, analisedCount
+	count := len(cart.Entries)
+
+	return cart.ID, count
 }
 
 func (h *Handler) GetArtifactTypes(ctx *gin.Context) {
 	searchQuery := ctx.Query("query")
-	var commodities []repository.Artifact
-	var err error
-
-	if searchQuery == "" {
-		commodities, err = h.Repository.GetCommodities()
-	} else {
-		commodities, err = h.Repository.GetCommoditiesByName(searchQuery)
-	}
+	artifacts, err := h.Repository.GetArtifacts(searchQuery)
 
 	if err != nil {
 		logrus.Error("Error fetching artifact list:", err)
-		commodities = []repository.Artifact{}
+		artifacts = []models.Artifact{}
 	}
 
-	cartID, analisedCount := h.getCartStatus()
+	cartID, entryCount := h.getCartStatus()
 
 	ctx.HTML(http.StatusOK, "mainPage.html", gin.H{
-		"commodities":   commodities,
+		"commodities":   artifacts,
 		"query":         searchQuery,
-		"analisedCount": analisedCount,
+		"analisedCount": entryCount,
 		"cartID":        cartID,
 	})
 }
 
 func (h *Handler) GetArtifactTypeDetails(ctx *gin.Context) {
 	idStr := ctx.Param("id")
-	id, err := strconv.Atoi(idStr)
+	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
-		logrus.Error("Invalid artifact ID:", err)
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
 
-	artifact, err := h.Repository.GetArtifact(id)
+	artifact, err := h.Repository.GetArtifactByID(uint(id))
 	if err != nil {
 		logrus.Error("Error fetching artifact details:", err)
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
-	cartID, analisedCount := h.getCartStatus()
+	cartID, entryCount := h.getCartStatus()
 
 	ctx.HTML(http.StatusOK, "detailsPage.html", gin.H{
 		"artifact":      artifact,
-		"analisedCount": analisedCount,
+		"analisedCount": entryCount,
 		"cartID":        cartID,
 	})
 }
 
-func (h *Handler) GetExcavationCart(ctx *gin.Context) {
-	cartID := ctx.Param("id")
+func (h *Handler) GetSiteCart(ctx *gin.Context) {
+	var cart models.SiteCart
+	var err error
 
-	cartData, err := h.Repository.GetExcavationCart(cartID)
+	cartIDStr := ctx.Param("id")
+	if cartIDStr != "" {
+		cartID, err := strconv.ParseUint(cartIDStr, 10, 32)
+		if err != nil {
+			ctx.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+		cart, err = h.Repository.GetSiteCartByID(uint(cartID))
+		if err == gorm.ErrRecordNotFound {
+			logrus.Warnf("Cart with ID %d not found.", cartID)
+			ctx.Redirect(http.StatusTemporaryRedirect, "/")
+			return
+		}
+	} else {
+		cart, err = h.Repository.GetSiteCartByUser(activeUserID, "draft")
+		if err == gorm.ErrRecordNotFound {
+			logrus.Warnf("Draft cart for user %d not found.", activeUserID)
+			ctx.Redirect(http.StatusTemporaryRedirect, "/")
+			return
+		}
+	}
+
 	if err != nil {
 		logrus.Error("Error fetching cart data:", err)
-		ctx.AbortWithStatus(http.StatusNotFound)
+		ctx.Redirect(http.StatusTemporaryRedirect, "/")
 		return
 	}
 
+	totalItemCount := 0
+	for _, entry := range cart.Entries {
+		totalItemCount += entry.ArtifactQuantity
+	}
+
 	ctx.HTML(http.StatusOK, "cartPage.html", gin.H{
-		"cart": cartData,
+		"cart":           cart,
+		"TotalItemCount": totalItemCount,
 	})
+}
+
+func (h *Handler) AddArtifactToCart(ctx *gin.Context) {
+	artifactIDStr := ctx.PostForm("artifact_id")
+	quantityStr := ctx.PostForm("quantity")
+
+	artifactID, err := strconv.ParseUint(artifactIDStr, 10, 32)
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	quantity, err := strconv.Atoi(quantityStr)
+	if err != nil || quantity <= 0 {
+		quantity = 1
+	}
+
+	cart, err := h.Repository.AddArtifactToCart(activeUserID, uint(artifactID), quantity)
+	if err != nil {
+		logrus.Errorf("Error adding artifact: %v", err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	ctx.Redirect(http.StatusFound, "/cart/"+strconv.FormatUint(uint64(cart.ID), 10))
+}
+
+func (h *Handler) DeleteSiteCart(ctx *gin.Context) {
+	cartIDStr := ctx.PostForm("cart_id")
+	cartID, err := strconv.ParseUint(cartIDStr, 10, 32)
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	err = h.Repository.DeleteSiteCartSQL(uint(cartID), "deleted")
+	if err != nil {
+		logrus.Errorf("Error soft deleting cart %d: %v", cartID, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	ctx.Redirect(http.StatusFound, "/")
+}
+
+func (h *Handler) RemoveArtifactFromCart(ctx *gin.Context) {
+	cartIDStr := ctx.PostForm("cart_id")
+	artifactIDStr := ctx.PostForm("artifact_id")
+
+	cartID, err := strconv.ParseUint(cartIDStr, 10, 32)
+	if err != nil {
+		logrus.Errorf("Invalid cart_id: %v", err)
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	artifactID, err := strconv.ParseUint(artifactIDStr, 10, 32)
+	if err != nil {
+		logrus.Errorf("Invalid artifact_id: %v", err)
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	err = h.Repository.RemoveArtifactFromCart(uint(cartID), uint(artifactID))
+	if err != nil {
+		logrus.Errorf("Error deleting cart entry C:%d A:%d: %v", cartID, artifactID, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	ctx.Redirect(http.StatusFound, "/cart/"+cartIDStr)
+}
+
+func (h *Handler) UpdateSiteCart(ctx *gin.Context) {
+	cartIDStr := ctx.Param("id")
+	cartID, err := strconv.ParseUint(cartIDStr, 10, 32)
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	siteName := ctx.PostForm("site_name")
+	comment := ctx.PostForm("comment")
+
+	if siteName == "" {
+		logrus.Error("Site name cannot be empty during cart update.")
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	err = h.Repository.UpdateCartDetails(uint(cartID), siteName, comment)
+
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			logrus.Warnf("Cart with ID %d not found for update.", cartID)
+			ctx.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+		logrus.Errorf("Error updating cart details for ID %d: %v", cartID, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	ctx.Redirect(http.StatusFound, "/cart/"+cartIDStr)
+}
+
+func (h *Handler) UpdateArtifactQuantityInCart(ctx *gin.Context) {
+	cartIDStr := ctx.PostForm("cart_id")
+	artifactIDStr := ctx.PostForm("artifact_id")
+	quantityStr := ctx.PostForm("quantity")
+
+	cartID, err := strconv.ParseUint(cartIDStr, 10, 32)
+	if err != nil {
+		logrus.Errorf("Invalid cart_id: %v", err)
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	artifactID, err := strconv.ParseUint(artifactIDStr, 10, 32)
+	if err != nil {
+		logrus.Errorf("Invalid artifact_id: %v", err)
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	quantity, err := strconv.Atoi(quantityStr)
+	if err != nil || quantity <= 0 {
+		logrus.Errorf("Invalid or non-positive quantity: %v", err)
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	err = h.Repository.UpdateArtifactQuantityInCart(uint(cartID), uint(artifactID), quantity)
+	if err != nil {
+		logrus.Errorf("Error updating quantity C:%d A:%d Q:%d: %v", cartID, artifactID, quantity, err)
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	ctx.Redirect(http.StatusFound, "/cart/"+cartIDStr)
 }
