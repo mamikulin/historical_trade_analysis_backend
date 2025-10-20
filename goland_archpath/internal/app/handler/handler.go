@@ -3,6 +3,7 @@ package handler
 import (
 	"archpath/internal/app/models"
 	"archpath/internal/app/repository"
+	"archpath/internal/app/service" // New dependency
 	"net/http"
 	"strconv"
 
@@ -14,27 +15,20 @@ import (
 const activeUserID = 1
 
 type Handler struct {
-	Repository *repository.Repository
+	Repository  *repository.Repository // For artifact-related reads
+	CartService *service.CartService   // For cart-related logic
 }
 
-func NewHandler(r *repository.Repository) *Handler {
+func NewHandler(r *repository.Repository, s *service.CartService) *Handler {
 	return &Handler{
-		Repository: r,
+		Repository:  r,
+		CartService: s,
 	}
 }
 
+// getCartStatus delegates to the service
 func (h *Handler) getCartStatus() (cartID uint, entryCount int) {
-	cart, err := h.Repository.GetSiteCartByUser(activeUserID, "draft")
-	if err != nil {
-		if err != gorm.ErrRecordNotFound {
-			logrus.Errorf("Error searching for draft cart: %v", err)
-		}
-		return 0, 0
-	}
-
-	count := len(cart.Entries)
-
-	return cart.ID, count
+	return h.CartService.GetCartStatus(activeUserID)
 }
 
 func (h *Handler) GetArtifactTypes(ctx *gin.Context) {
@@ -46,7 +40,7 @@ func (h *Handler) GetArtifactTypes(ctx *gin.Context) {
 		artifacts = []models.Artifact{}
 	}
 
-	cartID, entryCount := h.getCartStatus()
+	cartID, entryCount := h.getCartStatus() // Uses service layer
 
 	ctx.HTML(http.StatusOK, "mainPage.html", gin.H{
 		"commodities":   artifacts,
@@ -71,7 +65,7 @@ func (h *Handler) GetArtifactTypeDetails(ctx *gin.Context) {
 		return
 	}
 
-	cartID, entryCount := h.getCartStatus()
+	cartID, entryCount := h.getCartStatus() // Uses service layer
 
 	ctx.HTML(http.StatusOK, "detailsPage.html", gin.H{
 		"artifact":      artifact,
@@ -98,6 +92,7 @@ func (h *Handler) GetSiteCart(ctx *gin.Context) {
 			return
 		}
 	} else {
+		// Use repository directly for read operations
 		cart, err = h.Repository.GetSiteCartByUser(activeUserID, "draft")
 		if err == gorm.ErrRecordNotFound {
 			logrus.Warnf("Draft cart for user %d not found.", activeUserID)
@@ -142,9 +137,10 @@ func (h *Handler) AddArtifactToCart(ctx *gin.Context) {
 		quantity = 1
 	}
 
-	cart, err := h.Repository.AddArtifactToCart(activeUserID, uint(artifactID), quantity)
+	// Logic is delegated entirely to the service layer
+	cart, err := h.CartService.AddArtifactToCart(activeUserID, uint(artifactID), quantity)
 	if err != nil {
-		logrus.Errorf("Error adding artifact: %v", err)
+		logrus.Errorf("Error adding artifact via service: %v", err)
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}

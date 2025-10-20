@@ -4,50 +4,42 @@ import (
 	"archpath/internal/app/handler"
 	"archpath/internal/app/models"
 	"archpath/internal/app/repository"
+	"archpath/internal/app/service" // New dependency
 	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
-const dsn = "host=localhost user=myuser password=mypassword dbname=mydb port=5432 sslmode=disable TimeZone=Europe/Moscow"
-
+// strPtr is a utility function to get a string pointer
 func strPtr(s string) *string {
 	return &s
 }
 
-func StartServer() {
+// StartServer now accepts repository and cartService as dependencies
+func StartServer(repo *repository.Repository, cartService *service.CartService) {
 	log.Println("Server start up")
 
-	repo, err := repository.NewRepository(dsn)
-	if err != nil {
-		logrus.Fatalf("Ошибка инициализации репозитория и подключения к БД: %v. Проверьте DSN и статус контейнера 'db'.", err)
-	}
-
-	if err := SeedData(repo); err != nil {
-		logrus.Errorf("Ошибка наполнения БД начальными данными: %v", err)
-	}
-
-	h := handler.NewHandler(repo)
+	h := handler.NewHandler(repo, cartService) // Pass both repo and service
 
 	r := gin.Default()
 
+	// Load templates and static files relative to execution path
 	r.LoadHTMLGlob(filepath.Join("templates", "*.html"))
 	r.Static("/static", filepath.Join("resources"))
 
+	// Artifact Routes
 	r.GET("/", h.GetArtifactTypes)
 	r.GET("/artifact/:id", h.GetArtifactTypeDetails)
 
+	// Cart Routes
 	r.GET("/cart", h.GetSiteCart)
 	r.GET("/cart/:id", h.GetSiteCart)
 	r.POST("/cart/:id", h.UpdateSiteCart)
 
 	r.POST("/cart/add", h.AddArtifactToCart)
-
 	r.POST("/cart/update_quantity", h.UpdateArtifactQuantityInCart)
-
 	r.POST("/cart/delete", h.DeleteSiteCart)
 	r.POST("/cart/remove", h.RemoveArtifactFromCart)
 
@@ -60,9 +52,9 @@ func StartServer() {
 	log.Println("Server down")
 }
 
+// SeedData is now simple and called from main.go
 func SeedData(r *repository.Repository) error {
 	user := models.User{Login: "user1"}
-
 	r.DB.FirstOrCreate(&user, models.User{Login: "user1"}, &user)
 
 	const MinIOBaseURL = "http://localhost:9000/arcpath/"

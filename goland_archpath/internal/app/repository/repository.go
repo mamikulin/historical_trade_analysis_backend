@@ -83,48 +83,27 @@ func (r *Repository) GetSiteCartByID(cartID uint) (models.SiteCart, error) {
 	return cart, nil
 }
 
-func (r *Repository) AddArtifactToCart(userID uint, artifactID uint, quantity int) (models.SiteCart, error) {
-	var cart models.SiteCart
-	const draftStatus = "draft"
+// --- NEW/SIMPLIFIED CART/ENTRY CRUD METHODS ---
 
-	err := r.DB.Where("creator_id = ? AND status = ?", userID, draftStatus).First(&cart).Error
-
-	if err != nil && err == gorm.ErrRecordNotFound {
-		cart = models.SiteCart{
-			Status:    draftStatus,
-			CreatorID: userID,
-			SiteName:  "New site",
-		}
-		if err := r.DB.Create(&cart).Error; err != nil {
-			return models.SiteCart{}, fmt.Errorf("failed to create cart: %w", err)
-		}
-	} else if err != nil {
-		return models.SiteCart{}, fmt.Errorf("cart search error: %w", err)
-	}
-
-	var SiteEntry models.SiteEntry
-	res := r.DB.Where("cart_id = ? AND artifact_id = ?", cart.ID, artifactID).First(&SiteEntry)
-
-	if res.Error == gorm.ErrRecordNotFound {
-		SiteEntry = models.SiteEntry{
-			CartID:           cart.ID,
-			ArtifactID:       artifactID,
-			ArtifactQuantity: quantity,
-		}
-		if err := r.DB.Create(&SiteEntry).Error; err != nil {
-			return models.SiteCart{}, fmt.Errorf("failed to add artifact to cart: %w", err)
-		}
-	} else if res.Error != nil {
-		return models.SiteCart{}, fmt.Errorf("M-to-M entry search error: %w", res.Error)
-	} else {
-		SiteEntry.ArtifactQuantity += quantity
-		if err := r.DB.Save(&SiteEntry).Error; err != nil {
-			return models.SiteCart{}, fmt.Errorf("failed to update artifact in cart: %w", err)
-		}
-	}
-
-	return r.GetSiteCartByUser(userID, draftStatus)
+func (r *Repository) CreateSiteCart(cart *models.SiteCart) error {
+	return r.DB.Create(cart).Error
 }
+
+func (r *Repository) GetSiteEntry(cartID uint, artifactID uint) (models.SiteEntry, error) {
+	var entry models.SiteEntry
+	err := r.DB.Where("cart_id = ? AND artifact_id = ?", cartID, artifactID).First(&entry).Error
+	return entry, err
+}
+
+func (r *Repository) CreateSiteEntry(entry *models.SiteEntry) error {
+	return r.DB.Create(entry).Error
+}
+
+func (r *Repository) UpdateSiteEntry(entry *models.SiteEntry) error {
+	return r.DB.Save(entry).Error
+}
+
+// --- END NEW/SIMPLIFIED CART/ENTRY CRUD METHODS ---
 
 func (r *Repository) DeleteSiteCartSQL(cartID uint, newStatus string) error {
 	query := `UPDATE site_carts SET status = $1 WHERE id = $2`
