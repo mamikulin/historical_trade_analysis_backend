@@ -45,7 +45,7 @@
             {{ range .commodities }}
             <div class="artifact">
                 <div class="image">
-                    <img src="{{ or .ImageURL "https://placehold.co/200x150/6366f1/white?text=Artifact" }}" alt="{{ .Name }}">
+                    <img src="{{ .ImageURL }}" alt="{{ .Name }}">
                 </div>
                 <div class="info">
                     <div class="name">

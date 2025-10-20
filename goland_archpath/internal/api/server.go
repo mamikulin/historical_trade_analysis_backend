@@ -65,7 +65,7 @@ func SeedData(r *repository.Repository) error {
 
 	r.DB.FirstOrCreate(&user, models.User{Login: "user1"}, &user)
 
-	const MinIOBaseURL = "http://localhost:9000/archpath/"
+	const MinIOBaseURL = "http://localhost:9000/arcpath/"
 
 	artifacts := []models.Artifact{
 		{Name: "Амфоры аттические", Period: "V–IV вв. до н. э.", Region: "Аттика", ImageURL: strPtr(MinIOBaseURL + "first.jpg")},

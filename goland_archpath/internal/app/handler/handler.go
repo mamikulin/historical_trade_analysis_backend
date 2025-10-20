@@ -106,6 +106,11 @@ func (h *Handler) GetSiteCart(ctx *gin.Context) {
 		}
 	}
 
+	if cart.Status == "deleted" {
+		ctx.Redirect(http.StatusTemporaryRedirect, "/")
+		return
+	}
+
 	if err != nil {
 		logrus.Error("Error fetching cart data:", err)
 		ctx.Redirect(http.StatusTemporaryRedirect, "/")

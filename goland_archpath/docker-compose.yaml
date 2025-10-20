@@ -36,9 +36,9 @@ services:
     image: postgres:14-alpine
     restart: always
     environment:
-      POSTGRES_USER: myuser         # ⬅️ Используйте эти данные в DSN
-      POSTGRES_PASSWORD: mypassword # ⬅️ Используйте эти данные в DSN
-      POSTGRES_DB: mydb             # ⬅️ Используйте эти данные в DSN
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mydb
     ports:
       - "5432:5432"
     volumes:

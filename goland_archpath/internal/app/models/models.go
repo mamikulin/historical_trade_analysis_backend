@@ -53,3 +53,28 @@ type SiteEntry struct {
 	SiteCart SiteCart `gorm:"foreignKey:CartID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 	Artifact Artifact `gorm:"foreignKey:ArtifactID;constraint:OnUpdate:CASCADE,OnDelete:RESTRICT"`
 }
+
+func (cart *SiteCart) GetPercentageByRegion() map[string]float64 {
+	if len(cart.Entries) == 0 {
+		return make(map[string]float64)
+	}
+
+	regionCounts := make(map[string]int)
+	totalArtifacts := 0
+
+	for _, entry := range cart.Entries {
+		region := entry.Artifact.Region
+		quantity := entry.ArtifactQuantity
+
+		regionCounts[region] += quantity
+		totalArtifacts += quantity
+	}
+
+	regionPercentage := make(map[string]float64)
+	for region, count := range regionCounts {
+		percentage := (float64(count) / float64(totalArtifacts)) * 100
+		regionPercentage[region] = percentage
+	}
+
+	return regionPercentage
+}
