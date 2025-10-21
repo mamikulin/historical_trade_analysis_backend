@@ -31,7 +31,7 @@
             </div>
             <h1>{{.artifact.Name}}</h1>
             <div class="filterTag">
-                Период: {{.artifact.Period}}
+                Период: {{.artifact.Description}}
             </div>
         </div>
         
@@ -42,13 +42,13 @@
             
             <div class="info" style="flex-grow: 1; padding: 0;">
                 <div class="origin">
-                    <h2>Регион:</h2>
-                    <h3>{{ .artifact.Region }}</h3>
+                    <h2>Центр:</h2>
+                    <h3>{{ .artifact.ProductionCenter }}</h3>
                 </div>
                
 
                 <div class="actions" style="margin-top: 20px; padding: 0;">
-                    <form action="/cart/add" method="POST" style="display: flex; align-items: center;">
+                    <form action="/analysis/add" method="POST" style="display: flex; align-items: center;">
                         <input type="hidden" name="artifact_id" value="{{ .artifact.ID }}">
                         <label for="quantity-details" style="display: block; margin-right: 8px;">Количество:</label>
                         <input type="number" name="quantity" id="quantity-details" value="1" min="1" style="width: 100px; padding: 8px; border: 1px solid #ccc; border-radius: 5px; margin-right: 10px;">
@@ -63,18 +63,20 @@
         <div class="content" style="margin-top: 40px;">
             <div class="description">
                 <h3 style="font-size: 24px; font-weight: 600; color: #333; margin-bottom: 15px;">Описание</h3>
-                <p style="font-size: 16px; line-height: 1.6; color: #666;">{{.artifact.Descriotion}}</p>
+                <p style="font-size: 16px; line-height: 1.6; color: #666;">{{.artifact.Description}}</p>
             </div>
         </div>
     </main>
 
-    {{ if gt .analisedCount 0 }}
-    <div class="cart">
-        <div class="analisedCount">{{ .analisedCount }}</div>
-        <a href="/cart/{{ .cartID }}">
+    <div class="cart{{ if not (gt .analisedCount 0) }} inactive{{ end }}">
+        {{ if gt .analisedCount 0 }}
+            <div class="analisedCount">{{ .analisedCount }}</div>
+            <a href="/analysis/{{ .analysisID }}">
+                <img src="/static/img/cart.svg" alt="cart">
+            </a>
+        {{ else }}
             <img src="/static/img/cart.svg" alt="cart">
-        </a>
+        {{ end }}
     </div>
-    {{ end }}
-</body>
+    </body>
 </html>

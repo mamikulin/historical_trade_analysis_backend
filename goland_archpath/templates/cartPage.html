@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>АрхМаршрут | Проект {{ .cart.SiteName }}</title>
+    <title>АрхМаршрут | Проект {{ .analysis.SiteName }}</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,6 +12,40 @@
     <link rel="stylesheet" href="/static/styles/main.css">
     <link rel="stylesheet" href="/static/styles/mainPage.css">
     <link rel="stylesheet" href="/static/styles/header.css">
+
+    <!-- Добавлены минимальные стили для гарантии корректного отображения таблицы -->
+    <style>
+        .analysis-table-container {
+            overflow-x: auto;
+        }
+        .analysis-table-container table {
+            min-width: 1200px; /* Гарантируем минимальную ширину для удобства */
+        }
+        .analysis-table-container th, .analysis-table-container td {
+            white-space: nowrap;
+        }
+        
+        /* Исправление порядка кнопок и цвета для неактивного состояния */
+        .searchbar .btn {
+             transition: all 0.2s ease;
+        }
+
+        /* Стиль для кнопки "Сохранить" по умолчанию (активная) */
+        .btn.yellow {
+            background-color: #f59e0b;
+            color: white;
+            border: 1px solid #f59e0b;
+        }
+        
+        /* Стиль для кнопки "Сохранить", когда поле ввода пустое (имитация неактивности) */
+        /* Примечание: Для настоящей неактивности (disabled) нужно использовать JS, но для визуального оформления можно использовать этот класс */
+        .btn.yellow.inactive {
+            background-color: #d1d5db; /* Серый цвет */
+            border-color: #9ca3af; 
+            cursor: not-allowed;
+        }
+    </style>
+
 </head>
 <body>
     <header>
@@ -26,114 +60,140 @@
     </header>
 
     <main>
-        <div class="controls" style="margin-bottom: 40px;">
-            <form action="/cart/{{ .cart.ID }}" method="POST">
-                
-                <div style="margin-bottom: 20px;">
-                    <label for="site-name-input" style="display: block; font-size: 14px; font-weight: 600; color: var(--text-dark); margin-bottom: 8px;">
-                        Название памятника:
-                    </label>
-                    <div class="searchbar">
-                        <input type="text" 
-                               id="site-name-input" 
-                               name="site_name" 
-                               placeholder="Введите название памятника" 
-                               value="{{ .cart.SiteName }}" 
-                               style="width: 100%; padding: 12px 20px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px;">
-                    </div>
-                </div>
+        <!-- Обертка для основного контента: увеличивает максимальную ширину и центрирует -->
+        <div style="max-width: 1400px; margin: 0 auto; padding: 0 20px;">
 
-                <div class="searchbar" style="display: flex; align-items: center; gap: 10px;">
-                    <input type="text" 
-                           name="comment" 
-                           placeholder="Комментарий к заявке" 
-                           style="flex-grow: 1; padding: 12px 20px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px;">
+            <div class="controls" style="margin-bottom: 40px;">
+                <form action="/analysis/{{ .analysis.ID }}" method="POST">
                     
-                    <button class="btn yellow" type="submit" style="flex-shrink: 0; padding: 12px 25px;">
-                        <h2>Сохранить</h2>
-                    </button>
-                    <button class="btn red" type="button" onclick="document.getElementById('delete-cart-form').submit()" style="padding: 12px 25px;">
-                        <h2>Удалить заявку</h2>
-                    </button>
-                </div>
-            </form>
-
-            <form id="delete-cart-form" action="/cart/delete" method="POST" style="display: none;">
-                <input type="hidden" name="cart_id" value="{{ .cart.ID }}">
-            </form>
-        </div>
-
-        <div class="pageTitle" style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);">
-            <h2 style="font-size: 24px; font-weight: 600; color: var(--text-dark);">
-                Категорий услуг в заявке:  <span style="color: var(--primary-color);">{{ len .cart.Entries }}</span>
-            </h2>
-            <h3 style="font-size: 18px; font-weight: 600; color: var(--text-dark); margin-top: 10px;">
-                Общее число объектов (фрагментов): 
-                <span style="color: var(--primary-color);">{{ .TotalItemCount }}</span>
-            </h3>
-        </div>
-
-        <div class="commodiesList" style="display: block;"> 
-            {{ range .cart.Entries }}
-            <div class="artifact" style="display: flex; align-items: center; padding: 15px; border-bottom: 1px solid var(--border-color); box-shadow: none; border-radius: 0; margin-bottom: 0;">
-                
-                <div class="image" style="width: 100px; height: 80px; flex-shrink: 0; margin-right: 20px; border-radius: 4px;">
-            
-                    <img src="{{ or .Artifact.ImageURL "https://placehold.co/100x80/6366f1/white?text=Artifact" }}" alt="{{ .Artifact.Name }}">
-                </div>
-
-                <div class="info" style="flex-grow: 1; padding: 0;">
-                    <div class="name">
-                        <h1 style="font-size: 16px; font-weight: 700; min-height: auto; margin-bottom: 5px;">{{ .Artifact.Name }}</h1>
-                        <div class="count">
-                            <h3 style="font-size: 13px; font-weight: 700; color: var(--primary-color);">
-                                Текущее количество: {{ .ArtifactQuantity }}
-                            </h3>
+                    <div style="margin-bottom: 20px;">
+                        <label for="site-name-input" style="display: block; font-size: 14px; font-weight: 600; color: var(--text-dark); margin-bottom: 8px;">
+                            Название памятника:
+                        </label>
+                        <div class="searchbar">
+                            <input type="text" 
+                                id="site-name-input" 
+                                name="site_name" 
+                                placeholder="Введите название памятника" 
+                                value="{{ .analysis.SiteName }}" 
+                                style="width: 100%; padding: 12px 20px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px;">
                         </div>
                     </div>
-                    <div class="origin" style="margin-top: 10px;">
-                        <h2 style="font-size: 13px; font-weight: 500;">Регион: {{ .Artifact.Region }}</h2>
-                        <h3 style="font-size: 12px; font-weight: 400;">Период: {{ .Artifact.Period }}</h3>
-                    </div>
-                </div>
 
-                <div class="actions" style="flex-shrink: 0; width: 420px; display: flex; align-items: center; gap: 10px; padding: 0;">
-                    
-                    <form action="/cart/update_quantity" method="POST" style="display: flex; gap: 5px; align-items: center; flex-basis: 150px; flex-shrink: 0;">
-                        <input type="hidden" name="cart_id" value="{{ .CartID }}">
-                        <input type="hidden" name="artifact_id" value="{{ .ArtifactID }}">
+                    <div class="searchbar" style="display: flex; align-items: center; gap: 10px; justify-content: flex-end;">
+                        <input type="text" 
+                            name="comment" 
+                            placeholder="Комментарий к заявке" 
+                            style="flex-grow: 1; padding: 12px 20px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px;">
                         
-                        <label for="qty-{{ .CartID }}-{{ .ArtifactID }}" style="font-size: 13px; font-weight: 600; color: var(--text-dark); flex-shrink: 0;">
-                            Кол-во:
-                        </label>
-                        <input type="number" 
-                               id="qty-{{ .CartID }}-{{ .ArtifactID }}"
-                               name="quantity" 
-                               value="{{ .ArtifactQuantity }}" 
-                               min="1" 
-                               style="width: 50px; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; text-align: center;">
+                        <!-- Поменял местами кнопки, чтобы "Сохранить" была слева от "Удалить" -->
+                        <!-- Применил класс inactive для демонстрации неактивного состояния, которое нужно будет связать с JS -->
+                        <button class="btn yellow" type="submit" style="flex-shrink: 0; padding: 12px 25px;">
+                            <h2>Сохранить</h2>
+                        </button>
+                        <button class="btn red" type="button" onclick="document.getElementById('delete-analysis-form').submit()" style="padding: 12px 25px;">
+                            <h2>Удалить заявку</h2>
+                        </button>
+                    </div>
+                </form>
 
-                        <button class="btn green" type="submit" style="padding: 8px 12px;">
-                            <h2>✓</h2>
-                        </button>
-                    </form>
+                <form id="delete-analysis-form" action="/analysis/delete" method="POST" style="display: none;">
+                    <input type="hidden" name="analysis_id" value="{{ .analysis.ID }}">
+                </form>
+            </div>
 
-                    <a href="/artifact/{{ .ArtifactID }}" style="flex-basis: 100px; flex-shrink: 0;">
-                        <button class="btn yellow" style="width: 100%; padding: 10px 15px;">
-                            <h2>Подробнее</h2>
-                        </button>
-                    </a>
-                    
-                    <form action="/cart/remove" method="POST" style="flex-basis: 100px; flex-shrink: 0;">
-                        <input type="hidden" name="cart_id" value="{{ .CartID }}">
-                        <input type="hidden" name="artifact_id" value="{{ .ArtifactID }}">
-                         <button class="delete btn red" type="submit" style="width: 100%; padding: 10px 15px;">
-                            <h2>Удалить</h2>
-                        </button>
-                    </form>
-                </div>
+            <div class="pageTitle" style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);">
+                <h2 style="font-size: 24px; font-weight: 600; color: var(--text-dark);">
+                    Категорий услуг в заявке:  <span style="color: var(--primary-color);">{{ len .analysis.Entries }}</span>
+                </h2>
+                <h3 style="font-size: 18px; font-weight: 600; color: var(--text-dark); margin-top: 10px;">
+                    Общее число объектов (фрагментов): 
+                    <span style="color: var(--primary-color);">{{ .TotalItemCount }}</span>
+                </h3>
+            </div>
+
+            <!-- NEW: Display Analysis Results if available -->
+            {{ if .analysis.AnalysisResult }}
+            <div class="analysis-results" style="margin-top: 40px; margin-bottom: 40px; padding: 20px; border: 1px solid #d1d5db; background: #f9fafb; border-radius: 8px;">
+                <h3 style="font-size: 20px; font-weight: 700; color: var(--text-dark); margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #e5e7eb;">
+                    Результаты анализа импорта по регионам 
+                </h3>
+                <ul style="list-style: none; padding: 0;">
+                    {{ range $region, $percentage := .analysis.AnalysisResult }}
+                    <li style="font-size: 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="flex-grow: 1;">{{ $region }}</strong>
+                        <span style="font-weight: 700; color: var(--primary-color); background: #eef2ff; padding: 4px 10px; border-radius: 4px;">{{ printf "%.2f" $percentage }}%</span>
+                    </li>
+                    {{ end }}
+                </ul>
             </div>
             {{ end }}
+            
+            <!-- NEW: Display Entries as a Table -->
+            <div class=" analysis-table-container" style="margin-top: 20px;"> 
+                {{ if gt (len .analysis.Entries) 0 }}
+                <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <thead style="background-color: var(--primary-color); color: white;">
+                        <tr>
+                            <th style="padding: 15px; text-align: left;">Артефакт</th>
+                            <th style="padding: 15px; text-align: center;">Количество</th>
+                            <th style="padding: 15px; text-align: right;">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .analysis.Entries }}
+                        <tr style="border-bottom: 1px solid #f3f4f6;">
+                            
+                            <td style="padding: 15px; display: flex; align-items: center;">
+                                <div style="width: 50px; height: 40px; flex-shrink: 0; margin-right: 15px; border-radius: 4px; overflow: hidden;">
+                                    <img src="{{ or .Artifact.ImageURL "https://placehold.co/50x40/6366f1/white?text=A" }}" alt="{{ .Artifact.Name }}" style="width: 100%; height: 100%; object-fit: cover;">
+                                </div>
+                                <span style="font-weight: 600;">{{ .Artifact.Name }}</span>
+                            </td>
+                            
+                            <td style="padding: 15px; text-align: center;">
+                                <form action="/analysis/update_quantity" method="POST" style="display: inline-flex; gap: 5px; align-items: center;">
+                                    <input type="hidden" name="analysis_id" value="{{ .RequestID }}">
+                                    <input type="hidden" name="artifact_id" value="{{ .ArtifactID }}">
+                                    
+                                    <input type="number" 
+                                        name="quantity" 
+                                        value="{{ .Quantity }}" 
+                                        min="1" 
+                                        style="width: 60px; padding: 6px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; text-align: center;">
+
+                                    <button class="btn green" type="submit" style="padding: 6px 10px; font-size: 14px;">
+                                        ✓
+                                    </button>
+                                </form>
+                            </td>
+
+                            <td style="padding: 15px; text-align: right; display: flex; gap: 10px; justify-content: flex-end;">
+                                <a href="/artifact/{{ .ArtifactID }}">
+                                    <button class="btn yellow" style="padding: 8px 12px; font-size: 14px;">
+                                        Подробнее
+                                    </button>
+                                </a>
+                                
+                                <form action="/analysis/remove" method="POST">
+                                    <input type="hidden" name="analysis_id" value="{{ .RequestID }}">
+                                    <input type="hidden" name="artifact_id" value="{{ .ArtifactID }}">
+                                    <button class="delete btn red" type="submit" style="padding: 8px 12px; font-size: 14px;">
+                                        Удалить
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+                {{ else }}
+                <div style="text-align: center; padding: 40px; background-color: #f0f0f5; border-radius: 8px; color: #6b7280; border: 2px dashed #a5b4fc;">
+                    <h3 style="font-size: 18px; font-weight: 600;">Заявка пуста</h3>
+                    <p style="margin-top: 10px;">Для начала анализа добавьте категории артефактов из каталога.</p>
+                </div>
+                {{ end }}
+            </div>
         </div>
     </main>
 </body>

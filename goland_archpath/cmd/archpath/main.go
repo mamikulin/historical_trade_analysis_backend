@@ -26,10 +26,11 @@ func main() {
 	}
 
 	// 3. Initialize Services
-	cartService := service.NewCartService(repo)
+	// Updated: Using NewAnalysisService instead of NewCartService
+	analysisService := service.NewAnalysisService(repo)
 
 	// 4. Start Server
-	api.StartServer(repo, cartService)
+	// Passes the correctly named analysis service
+	api.StartServer(repo, analysisService) 
 	log.Println("Application terminated")
-
 }
