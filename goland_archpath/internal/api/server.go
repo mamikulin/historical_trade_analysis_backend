@@ -11,19 +11,15 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// StartServer sets up the router and starts the HTTP server.
 func StartServer(artifactService artifact.Service, userService *user.Service, aarService *analysis_artifact_record.Service, taService *trade_analysis.Service) {
 	r := mux.NewRouter()
 
-	// Register artifact routes
-	artifactHandler := artifact.NewHandler(artifactService)
+	artifactHandler =:= artifact.NewHandler(artifactService)
 	artifactHandler.RegisterRoutes(r)
 
-	// Register user routes
 	userHandler := user.NewHandler(userService)
 	userHandler.RegisterRoutes(r)
 
-	// Register analysis-artifact-record routes
 	aarHandler := analysis_artifact_record.NewHandler(aarService)
 	aarHandler.RegisterRoutes(r)
 

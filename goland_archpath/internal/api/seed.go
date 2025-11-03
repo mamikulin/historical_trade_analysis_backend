@@ -4,10 +4,8 @@ import (
 	"archpath/internal/app/artifact"
 )
 
-// strPtr helper
 func strPtr(s string) *string { return &s }
 
-// SeedData initializes the database with artifacts
 func SeedData(r *artifact.Repository) error {
 	const MinIOBaseURL = "http://localhost:9000/arcpath/"
 

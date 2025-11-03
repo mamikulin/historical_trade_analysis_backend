@@ -40,12 +40,10 @@ func NewService(repo *Repository, minioClient MinioClient) Service {
 	return &service{repo: repo, minioClient: minioClient}
 }
 
-// SetTradeAnalysisService sets the trade analysis service (for avoiding circular dependency)
 func (s *service) SetTradeAnalysisService(taService TradeAnalysisService) {
 	s.taService = taService
 }
 
-// SetAnalysisArtifactRecordRepository sets the AAR repository (for avoiding circular dependency)
 func (s *service) SetAnalysisArtifactRecordRepository(aarRepo AnalysisArtifactRecordRepository) {
 	s.aarRepo = aarRepo
 }
@@ -81,19 +79,16 @@ func (s *service) UploadImage(id uint, file multipart.File, header *multipart.Fi
 	return url, nil
 }
 
-// AddToDraft adds an artifact to the user's draft request
 func (s *service) AddToDraft(artifactID, creatorID uint, quantity int, comment string) (map[string]interface{}, error) {
 	if s.taService == nil || s.aarRepo == nil {
 		return nil, fmt.Errorf("dependencies not set")
 	}
 	
-	// Verify artifact exists
 	artifact, err := s.repo.GetByID(artifactID)
 	if err != nil {
 		return nil, fmt.Errorf("artifact not found: %w", err)
 	}
 	
-	// Get or create draft request
 	cart, err := s.taService.GetDraftCart(creatorID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get draft: %w", err)
@@ -101,10 +96,8 @@ func (s *service) AddToDraft(artifactID, creatorID uint, quantity int, comment s
 	
 	requestID := cart["request_id"].(uint)
 	
-	// Check if artifact already in draft
 	existing, err := s.aarRepo.GetRecordByCompositeKey(requestID, artifactID)
 	if err == nil && existing != nil {
-		// Update existing record
 		updates := map[string]interface{}{
 			"quantity": quantity,
 			"comment":  comment,
@@ -121,7 +114,6 @@ func (s *service) AddToDraft(artifactID, creatorID uint, quantity int, comment s
 		}, nil
 	}
 	
-	// Create new record
 	record := map[string]interface{}{
 		"request_id":  requestID,
 		"artifact_id": artifactID,

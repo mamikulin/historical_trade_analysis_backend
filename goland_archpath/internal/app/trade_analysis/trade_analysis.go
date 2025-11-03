@@ -8,10 +8,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// AnalysisResult stores the percentage by region as JSON
 type AnalysisResult map[string]float64
 
-// Scan implements the sql.Scanner interface for AnalysisResult
 func (a *AnalysisResult) Scan(value interface{}) error {
 	if value == nil {
 		*a = make(AnalysisResult)
@@ -32,7 +30,6 @@ func (a *AnalysisResult) Scan(value interface{}) error {
 	return nil
 }
 
-// Value implements the driver.Valuer interface for AnalysisResult
 func (a AnalysisResult) Value() (driver.Value, error) {
 	if a == nil {
 		return nil, nil
@@ -40,27 +37,22 @@ func (a AnalysisResult) Value() (driver.Value, error) {
 	return json.Marshal(a)
 }
 
-// TradeAnalysis represents a trade analysis request (заявка)
 type TradeAnalysis struct {
 	gorm.Model
 	
-	// NotNull Required Fields
 	Status    string    `gorm:"not null;default:'draft'" json:"status"`
 	CreatorID uint      `gorm:"not null" json:"creator_id"`
 	SiteName  string    `gorm:"not null" json:"site_name"`
 	
-	// Dates and Moderator for Workflow
 	FormationDate  *time.Time `json:"formation_date"`
 	CompletionDate *time.Time `json:"completion_date"`
 	ModeratorID    *uint      `json:"moderator_id"`
 	
 	TotalFindsQuantity int `gorm:"not null;default:0" json:"total_finds_quantity"`
 	
-	// Stores the map as JSON in a JSONB column
 	AnalysisResult AnalysisResult `gorm:"type:jsonb" json:"analysis_result"`
 }
 
-// GetPercentageByRegion calculates the percentage of artifacts by region
 func (ta *TradeAnalysis) GetPercentageByRegion(entries []AnalysisArtifactRecordWithArtifact) AnalysisResult {
 	if len(entries) == 0 {
 		return AnalysisResult{}
@@ -89,7 +81,6 @@ func (ta *TradeAnalysis) GetPercentageByRegion(entries []AnalysisArtifactRecordW
 	return regionPercentage
 }
 
-// AnalysisArtifactRecordWithArtifact is used for calculations
 type AnalysisArtifactRecordWithArtifact struct {
 	RequestID        uint   `json:"request_id"`
 	ArtifactID       uint   `json:"artifact_id"`

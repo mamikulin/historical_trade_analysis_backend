@@ -106,11 +106,9 @@ func (h *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"image_url": url})
 }
 
-// AddToDraft adds an artifact to the user's draft request (POST /artifacts/{id}/add-to-draft)
 func (h *Handler) AddToDraft(w http.ResponseWriter, r *http.Request) {
 	artifactID, _ := strconv.Atoi(mux.Vars(r)["id"])
 	
-	// TODO: Get creatorID from session/JWT token
 	creatorID := uint(1)
 	
 	var body struct {
@@ -118,11 +116,9 @@ func (h *Handler) AddToDraft(w http.ResponseWriter, r *http.Request) {
 		Comment  string `json:"comment"`
 	}
 	
-	// Default quantity to 1 if not provided
 	body.Quantity = 1
 	
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		// If body is empty or invalid, just use defaults
 		body.Quantity = 1
 	}
 	

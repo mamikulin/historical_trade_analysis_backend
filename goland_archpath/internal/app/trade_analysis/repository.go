@@ -13,12 +13,10 @@ func NewRepository(db *gorm.DB) *Repository {
 	return &Repository{DB: db}
 }
 
-// CreateRequest creates a new trade analysis request
 func (r *Repository) CreateRequest(request *TradeAnalysis) error {
 	return r.DB.Create(request).Error
 }
 
-// GetRequestByID retrieves a request by ID
 func (r *Repository) GetRequestByID(id uint) (*TradeAnalysis, error) {
 	var request TradeAnalysis
 	err := r.DB.First(&request, id).Error
@@ -28,7 +26,6 @@ func (r *Repository) GetRequestByID(id uint) (*TradeAnalysis, error) {
 	return &request, nil
 }
 
-// GetDraftByCreatorID retrieves the draft request for a specific creator
 func (r *Repository) GetDraftByCreatorID(creatorID uint) (*TradeAnalysis, error) {
 	var request TradeAnalysis
 	err := r.DB.Where("creator_id = ? AND status = ?", creatorID, "draft").First(&request).Error
@@ -38,7 +35,6 @@ func (r *Repository) GetDraftByCreatorID(creatorID uint) (*TradeAnalysis, error)
 	return &request, nil
 }
 
-// GetAllRequests retrieves all requests with filters (excluding drafts and deleted)
 func (r *Repository) GetAllRequests(status string, startDate, endDate *time.Time) ([]TradeAnalysis, error) {
 	var requests []TradeAnalysis
 	query := r.DB.Where("status != ? AND deleted_at IS NULL", "draft")
@@ -59,17 +55,14 @@ func (r *Repository) GetAllRequests(status string, startDate, endDate *time.Time
 	return requests, err
 }
 
-// UpdateRequest updates a request
 func (r *Repository) UpdateRequest(id uint, updates map[string]interface{}) error {
 	return r.DB.Model(&TradeAnalysis{}).Where("id = ?", id).Updates(updates).Error
 }
 
-// DeleteRequest soft deletes a request (only if it has formation_date)
 func (r *Repository) DeleteRequest(id uint) error {
 	return r.DB.Delete(&TradeAnalysis{}, id).Error
 }
 
-// GetEntriesWithArtifacts retrieves all entries for a request with artifact details
 func (r *Repository) GetEntriesWithArtifacts(requestID uint) ([]AnalysisArtifactRecordWithArtifact, error) {
 	var entries []AnalysisArtifactRecordWithArtifact
 	err := r.DB.Table("analysis_artifact_records").
@@ -81,7 +74,6 @@ func (r *Repository) GetEntriesWithArtifacts(requestID uint) ([]AnalysisArtifact
 	return entries, err
 }
 
-// CountEntriesByRequestID counts the number of entries for a request
 func (r *Repository) CountEntriesByRequestID(requestID uint) (int64, error) {
 	var count int64
 	err := r.DB.Table("analysis_artifact_records").
