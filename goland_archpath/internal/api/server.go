@@ -1,51 +1,38 @@
 package api
 
 import (
-	"archpath/internal/app/handler"
-	"archpath/internal/app/repository"
-	"archpath/internal/app/service"
+	"archpath/internal/app/analysis_artifact_record"
+	"archpath/internal/app/trade_analysis"
+	"archpath/internal/app/artifact"
+	"archpath/internal/app/user"
 	"log"
-	"os"
-	"path/filepath"
+	"net/http"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gorilla/mux"
 )
 
-// strPtr is a utility function to get a string pointer
-func strPtr(s string) *string {
-	return &s
-}
-
 // StartServer sets up the router and starts the HTTP server.
-func StartServer(repo *repository.Repository, analysisService *service.AnalysisService) {
-	log.Println("Server start up")
-	h := handler.NewHandler(repo, analysisService)
-	r := gin.Default()
+func StartServer(artifactService artifact.Service, userService *user.Service, aarService *analysis_artifact_record.Service, taService *trade_analysis.Service) {
+	r := mux.NewRouter()
 
-	// Load templates and static files relative to execution path
-	r.LoadHTMLGlob(filepath.Join("templates", "*.html"))
-	r.Static("/static", filepath.Join("resources"))
+	// Register artifact routes
+	artifactHandler := artifact.NewHandler(artifactService)
+	artifactHandler.RegisterRoutes(r)
 
-	// Artifact Routes
-	r.GET("/", h.GetArtifactTypes)
-	r.GET("/artifact/:id", h.GetArtifactTypeDetails)
+	// Register user routes
+	userHandler := user.NewHandler(userService)
+	userHandler.RegisterRoutes(r)
 
-	// Trade Analysis Routes
-	// Note: The service/handler logic uses the new 'analysis' naming.
-	r.GET("/analysis", h.GetTradeAnalysis)
-	r.GET("/analysis/:id", h.GetTradeAnalysis)
-	r.POST("/analysis/:id", h.UpdateTradeAnalysis)
-	r.POST("/analysis/add", h.AddArtifactToAnalysis)
-	r.POST("/analysis/update_quantity", h.UpdateArtifactQuantityInAnalysis)
-	r.POST("/analysis/delete", h.DeleteTradeAnalysis)
-	r.POST("/analysis/remove", h.RemoveArtifactFromAnalysis)
+	// Register analysis-artifact-record routes
+	aarHandler := analysis_artifact_record.NewHandler(aarService)
+	aarHandler.RegisterRoutes(r)
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8081"
+    taHandler := trade_analysis.NewHandler(taService)
+    taHandler.RegisterRoutes(r)
+
+	addr := ":8000"
+	log.Printf("Server listening on %s\n", addr)
+	if err := http.ListenAndServe(addr, r); err != nil {
+		log.Fatalf("Server failed: %v", err)
 	}
-
-	log.Printf("Server listening on :%s", port)
-	r.Run(":" + port)
-	log.Println("Server down")
 }
