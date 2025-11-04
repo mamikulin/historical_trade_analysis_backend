@@ -24,13 +24,20 @@ func NewRepository(dsn string) (*Repository, error) {
     return &Repository{DB: db}, nil
 }
 
-func (r *Repository) GetAll() ([]Artifact, error) {
-    var artifacts []Artifact
-    if err := r.DB.Find(&artifacts).Error; err != nil {
-        return nil, err
-    }
-    return artifacts, nil
+func (r *Repository) GetAll(filters map[string]interface{}) ([]Artifact, error) {
+	var artifacts []Artifact
+	query := r.DB.Model(&Artifact{})
+
+	for key, value := range filters {
+		query = query.Where(key+" = ?", value)
+	}
+
+	if err := query.Find(&artifacts).Error; err != nil {
+		return nil, err
+	}
+	return artifacts, nil
 }
+
 
 func (r *Repository) GetByID(id uint) (*Artifact, error) {
     var artifact Artifact

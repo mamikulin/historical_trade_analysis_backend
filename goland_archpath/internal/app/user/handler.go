@@ -69,6 +69,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
     user := &User{
         Login: "user1",  
+    }
 
     json.NewEncoder(w).Encode(user)
 }

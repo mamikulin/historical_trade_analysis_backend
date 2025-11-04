@@ -1,6 +1,7 @@
 package artifact
 
 import (
+	"archpath/internal/app/auth"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -28,8 +29,9 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 
 func (h *Handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	filters := map[string]interface{}{}
+
 	if isActive := r.URL.Query().Get("is_active"); isActive != "" {
-		filters["is_active"] = isActive == "true"
+		filters["is_active"] = (isActive == "true")
 	}
 	if center := r.URL.Query().Get("production_center"); center != "" {
 		filters["production_center"] = center
@@ -40,6 +42,8 @@ func (h *Handler) GetAll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(artifacts)
 }
 
@@ -106,19 +110,24 @@ func (h *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"image_url": url})
 }
 
+// AddToDraft adds an artifact to the user's draft request (POST /artifacts/{id}/add-to-analysis)
+// Заявка создается пустой с автоматическим указанием создателя, даты создания и статуса
 func (h *Handler) AddToDraft(w http.ResponseWriter, r *http.Request) {
 	artifactID, _ := strconv.Atoi(mux.Vars(r)["id"])
 	
-	creatorID := uint(1)
+	// Получаем ID текущего пользователя через singleton функцию
+	creatorID := auth.GetCurrentUserID()
 	
 	var body struct {
 		Quantity int    `json:"quantity"`
 		Comment  string `json:"comment"`
 	}
 	
+	// Default quantity to 1 if not provided
 	body.Quantity = 1
 	
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		// If body is empty or invalid, just use defaults
 		body.Quantity = 1
 	}
 	

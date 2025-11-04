@@ -3,6 +3,9 @@ package artifact
 import (
 	"fmt"
 	"mime/multipart"
+	"time"
+	
+	"gorm.io/gorm"
 )
 
 type Service interface {
@@ -19,38 +22,22 @@ type MinioClient interface {
 	UploadFile(objectName string, file multipart.File, header *multipart.FileHeader) (string, error)
 }
 
-type TradeAnalysisService interface {
-	GetDraftCart(creatorID uint) (map[string]interface{}, error)
-}
-
-type AnalysisArtifactRecordRepository interface {
-	CreateRecord(record interface{}) error
-	GetRecordByCompositeKey(requestID, artifactID uint) (interface{}, error)
-	UpdateRecord(requestID, artifactID uint, updates map[string]interface{}) error
-}
-
 type service struct {
 	repo        *Repository
 	minioClient MinioClient
-	taService   TradeAnalysisService
-	aarRepo     AnalysisArtifactRecordRepository
 }
 
 func NewService(repo *Repository, minioClient MinioClient) Service {
-	return &service{repo: repo, minioClient: minioClient}
-}
-
-func (s *service) SetTradeAnalysisService(taService TradeAnalysisService) {
-	s.taService = taService
-}
-
-func (s *service) SetAnalysisArtifactRecordRepository(aarRepo AnalysisArtifactRecordRepository) {
-	s.aarRepo = aarRepo
+	return &service{
+		repo:        repo,
+		minioClient: minioClient,
+	}
 }
 
 func (s *service) GetAll(filters map[string]interface{}) ([]Artifact, error) {
-	return s.repo.GetAll()
+	return s.repo.GetAll(filters)
 }
+
 
 func (s *service) GetByID(id uint) (*Artifact, error) {
 	return s.repo.GetByID(id)
@@ -79,30 +66,77 @@ func (s *service) UploadImage(id uint, file multipart.File, header *multipart.Fi
 	return url, nil
 }
 
+// TradeAnalysisDraft represents a minimal draft structure
+type TradeAnalysisDraft struct {
+	ID        uint
+	Status    string
+	CreatorID uint
+	SiteName  string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// AnalysisArtifactRecord represents the many-to-many record
+type AnalysisArtifactRecord struct {
+	RequestID   uint
+	ArtifactID  uint
+	Quantity    int
+	Comment     string
+	Order       int
+	IsMainEntry bool
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+// AddToDraft adds an artifact to the user's draft request
+// Заявка создается автоматически с указанием создателя, даты создания и статуса
 func (s *service) AddToDraft(artifactID, creatorID uint, quantity int, comment string) (map[string]interface{}, error) {
-	if s.taService == nil || s.aarRepo == nil {
-		return nil, fmt.Errorf("dependencies not set")
-	}
-	
+	// Verify artifact exists
 	artifact, err := s.repo.GetByID(artifactID)
 	if err != nil {
 		return nil, fmt.Errorf("artifact not found: %w", err)
 	}
 	
-	cart, err := s.taService.GetDraftCart(creatorID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get draft: %w", err)
+	// Get or create draft request
+	var draft TradeAnalysisDraft
+	err = s.repo.DB.Table("trade_analyses").
+		Where("creator_id = ? AND status = ?", creatorID, "draft").
+		First(&draft).Error
+	
+	if err == gorm.ErrRecordNotFound {
+		// Create new draft - заявка создается пустой
+		draft = TradeAnalysisDraft{
+			Status:    "draft",
+			CreatorID: creatorID,
+			SiteName:  "",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		}
+		
+		if err := s.repo.DB.Table("trade_analyses").Create(&draft).Error; err != nil {
+			return nil, fmt.Errorf("failed to create draft: %w", err)
+		}
+	} else if err != nil {
+		return nil, fmt.Errorf("database error: %w", err)
 	}
 	
-	requestID := cart["request_id"].(uint)
+	requestID := draft.ID
 	
-	existing, err := s.aarRepo.GetRecordByCompositeKey(requestID, artifactID)
-	if err == nil && existing != nil {
-		updates := map[string]interface{}{
-			"quantity": quantity,
-			"comment":  comment,
-		}
-		if err := s.aarRepo.UpdateRecord(requestID, artifactID, updates); err != nil {
+	// Check if artifact already in draft
+	var existing AnalysisArtifactRecord
+	err = s.repo.DB.Table("analysis_artifact_records").
+		Where("request_id = ? AND artifact_id = ?", requestID, artifactID).
+		First(&existing).Error
+	
+	if err == nil {
+		// Update existing record
+		if err := s.repo.DB.Table("analysis_artifact_records").
+			Where("request_id = ? AND artifact_id = ?", requestID, artifactID).
+			Updates(map[string]interface{}{
+				"quantity":   quantity,
+				"comment":    comment,
+				"updated_at": time.Now(),
+			}).Error; err != nil {
 			return nil, fmt.Errorf("failed to update existing record: %w", err)
 		}
 		
@@ -114,23 +148,27 @@ func (s *service) AddToDraft(artifactID, creatorID uint, quantity int, comment s
 		}, nil
 	}
 	
-	record := map[string]interface{}{
-		"request_id":  requestID,
-		"artifact_id": artifactID,
-		"quantity":    quantity,
-		"comment":     comment,
-		"order":       0,
+	// Create new record
+	record := AnalysisArtifactRecord{
+		RequestID:   requestID,
+		ArtifactID:  artifactID,
+		Quantity:    quantity,
+		Comment:     comment,
+		Order:       0,
+		IsMainEntry: false,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 	
-	if err := s.aarRepo.CreateRecord(record); err != nil {
+	if err := s.repo.DB.Table("analysis_artifact_records").Create(&record).Error; err != nil {
 		return nil, fmt.Errorf("failed to add to draft: %w", err)
 	}
 	
 	return map[string]interface{}{
-		"message":      "Artifact added to draft",
-		"request_id":   requestID,
-		"artifact_id":  artifactID,
+		"message":       "Artifact added to draft",
+		"request_id":    requestID,
+		"artifact_id":   artifactID,
 		"artifact_name": artifact.Name,
-		"quantity":     quantity,
+		"quantity":      quantity,
 	}, nil
 }

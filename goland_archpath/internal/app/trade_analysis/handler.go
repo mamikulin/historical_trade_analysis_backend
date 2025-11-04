@@ -1,6 +1,7 @@
 package trade_analysis
 
 import (
+	"archpath/internal/app/auth"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -18,23 +19,32 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(r *mux.Router) {
+	// GET иконки корзины (draft cart)
 	r.HandleFunc("/trade-analysis/cart", h.GetDraftCart).Methods("GET")
 	
+	// GET список заявок с фильтрацией
 	r.HandleFunc("/trade-analysis", h.GetAllRequests).Methods("GET")
 	
+	// GET одна заявка с услугами
 	r.HandleFunc("/trade-analysis/{id}", h.GetRequestByID).Methods("GET")
 	
+	// PUT изменения полей заявки
 	r.HandleFunc("/trade-analysis/{id}", h.UpdateRequest).Methods("PUT")
 	
+	// PUT сформировать заявку создателем
 	r.HandleFunc("/trade-analysis/{id}/form", h.FormRequest).Methods("PUT")
 	
+	// PUT завершить/отклонить заявку модератором
 	r.HandleFunc("/trade-analysis/{id}/moderate", h.CompleteOrRejectRequest).Methods("PUT")
 	
+	// DELETE удаление заявки
 	r.HandleFunc("/trade-analysis/{id}", h.DeleteRequest).Methods("DELETE")
 }
 
+// GetDraftCart retrieves the draft cart (GET /trade-analysis/cart)
 func (h *Handler) GetDraftCart(w http.ResponseWriter, r *http.Request) {
-	creatorID := uint(1)
+	// Получаем ID текущего пользователя через singleton функцию
+	creatorID := auth.GetCurrentUserID()
 	
 	cart, err := h.service.GetDraftCart(creatorID)
 	if err != nil {
@@ -45,7 +55,9 @@ func (h *Handler) GetDraftCart(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(cart)
 }
 
+// GetAllRequests retrieves all requests with filters (GET /trade-analysis)
 func (h *Handler) GetAllRequests(w http.ResponseWriter, r *http.Request) {
+	// Parse query parameters
 	status := r.URL.Query().Get("status")
 	startDateStr := r.URL.Query().Get("start_date")
 	endDateStr := r.URL.Query().Get("end_date")
@@ -79,6 +91,7 @@ func (h *Handler) GetAllRequests(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(requests)
 }
 
+// GetRequestByID retrieves a single request (GET /trade-analysis/{id})
 func (h *Handler) GetRequestByID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["id"], 10, 32)
@@ -96,6 +109,7 @@ func (h *Handler) GetRequestByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(request)
 }
 
+// UpdateRequest updates request fields (PUT /trade-analysis/{id})
 func (h *Handler) UpdateRequest(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["id"], 10, 32)
@@ -111,6 +125,7 @@ func (h *Handler) UpdateRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	// Prevent updating protected fields
 	delete(updates, "id")
 	delete(updates, "creator_id")
 	delete(updates, "formation_date")
@@ -132,6 +147,7 @@ func (h *Handler) UpdateRequest(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(request)
 }
 
+// FormRequest forms the request (PUT /trade-analysis/{id}/form)
 func (h *Handler) FormRequest(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["id"], 10, 32)
@@ -140,7 +156,8 @@ func (h *Handler) FormRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	creatorID := uint(1)
+	// Получаем ID текущего пользователя через singleton функцию
+	creatorID := auth.GetCurrentUserID()
 	
 	err = h.service.FormRequest(uint(id), creatorID)
 	if err != nil {
@@ -157,6 +174,7 @@ func (h *Handler) FormRequest(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(request)
 }
 
+// CompleteOrRejectRequest completes or rejects a request (PUT /trade-analysis/{id}/moderate)
 func (h *Handler) CompleteOrRejectRequest(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["id"], 10, 32)
@@ -166,7 +184,7 @@ func (h *Handler) CompleteOrRejectRequest(w http.ResponseWriter, r *http.Request
 	}
 	
 	var body struct {
-		Action string `json:"action"` 
+		Action string `json:"action"` // "completed" or "rejected"
 	}
 	
 	err = json.NewDecoder(r.Body).Decode(&body)
@@ -175,7 +193,8 @@ func (h *Handler) CompleteOrRejectRequest(w http.ResponseWriter, r *http.Request
 		return
 	}
 	
-	moderatorID := uint(2)
+	// Получаем ID модератора через singleton функцию
+	moderatorID := auth.GetCurrentModeratorID()
 	
 	err = h.service.CompleteOrRejectRequest(uint(id), moderatorID, body.Action)
 	if err != nil {
@@ -192,6 +211,7 @@ func (h *Handler) CompleteOrRejectRequest(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(request)
 }
 
+// DeleteRequest deletes a request (DELETE /trade-analysis/{id})
 func (h *Handler) DeleteRequest(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["id"], 10, 32)
