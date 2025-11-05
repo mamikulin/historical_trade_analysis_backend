@@ -37,8 +37,9 @@ func (s *Service) GetDraftCart(creatorID uint) (map[string]interface{}, error) {
 	}, nil
 }
 
-func (s *Service) GetAllRequests(status string, startDate, endDate *time.Time) ([]map[string]interface{}, error) {
-	requests, err := s.repo.GetAllRequests(status, startDate, endDate)
+// Добавлен параметр creatorID для фильтрации
+func (s *Service) GetAllRequests(status string, startDate, endDate *time.Time, creatorID *uint) ([]map[string]interface{}, error) {
+	requests, err := s.repo.GetAllRequests(status, startDate, endDate, creatorID)
 	if err != nil {
 		return nil, err
 	}

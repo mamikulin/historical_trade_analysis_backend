@@ -52,6 +52,17 @@ services:
     depends_on:
       - db
   
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+
   minio1:
     <<: *minio-common
     hostname: minio1 # указываем что адрес внутри подсети docker будет http://minio1:9000/ и на порту 9001 для админки соотвественно
@@ -109,3 +120,5 @@ volumes:
   data4-2:
 
   postgres_data:
+
+  redis_data:

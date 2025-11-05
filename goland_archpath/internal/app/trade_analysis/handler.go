@@ -1,7 +1,7 @@
 package trade_analysis
 
 import (
-	"archpath/internal/app/auth"
+	"archpath/internal/middleware"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -41,12 +41,23 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/trade-analysis/{id}", h.DeleteRequest).Methods("DELETE")
 }
 
-// GetDraftCart retrieves the draft cart (GET /trade-analysis/cart)
+// @Summary Get draft cart
+// @Description Retrieve the draft cart for the current user
+// @Tags trade-analysis
+// @Produce json
+// @Success 200 {object} object
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 500 {string} string "Failed to retrieve cart"
+// @Security CookieAuth
+// @Router /trade-analysis/cart [get]
 func (h *Handler) GetDraftCart(w http.ResponseWriter, r *http.Request) {
-	// Получаем ID текущего пользователя через singleton функцию
-	creatorID := auth.GetCurrentUserID()
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	
-	cart, err := h.service.GetDraftCart(creatorID)
+	cart, err := h.service.GetDraftCart(userID)
 	if err != nil {
 		http.Error(w, "Failed to retrieve cart: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -55,8 +66,30 @@ func (h *Handler) GetDraftCart(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(cart)
 }
 
-// GetAllRequests retrieves all requests with filters (GET /trade-analysis)
+// @Summary Get all requests
+// @Description Get all trade analysis requests with optional filters. Returns only user's requests for regular users, all requests for moderators
+// @Tags trade-analysis
+// @Produce json
+// @Param status query string false "Filter by status"
+// @Param start_date query string false "Filter by start date (YYYY-MM-DD)"
+// @Param end_date query string false "Filter by end date (YYYY-MM-DD)"
+// @Success 200 {array} object
+// @Failure 400 {string} string "Invalid parameters"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 403 {string} string "Forbidden"
+// @Failure 500 {string} string "Failed to retrieve requests"
+// @Security CookieAuth
+// @Router /trade-analysis [get]
 func (h *Handler) GetAllRequests(w http.ResponseWriter, r *http.Request) {
+	userID, userAuthenticated := middleware.GetUserIDFromContext(r.Context())
+	role, _ := middleware.GetRoleFromContext(r.Context())
+	
+	// Если пользователь не авторизован - возвращаем 401
+	if !userAuthenticated {
+		http.Error(w, "Unauthorized: authentication required", http.StatusUnauthorized)
+		return
+	}
+	
 	// Parse query parameters
 	status := r.URL.Query().Get("status")
 	startDateStr := r.URL.Query().Get("start_date")
@@ -82,7 +115,15 @@ func (h *Handler) GetAllRequests(w http.ResponseWriter, r *http.Request) {
 		endDate = &parsed
 	}
 	
-	requests, err := h.service.GetAllRequests(status, startDate, endDate)
+	// Определяем, нужно ли фильтровать по creatorID
+	var creatorIDFilter *uint
+	if role != "moderator" {
+		// Обычный пользователь видит только свои заявки
+		creatorIDFilter = &userID
+	}
+	// Модератор видит все заявки (creatorIDFilter остается nil)
+	
+	requests, err := h.service.GetAllRequests(status, startDate, endDate, creatorIDFilter)
 	if err != nil {
 		http.Error(w, "Failed to retrieve requests: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -91,7 +132,15 @@ func (h *Handler) GetAllRequests(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(requests)
 }
 
-// GetRequestByID retrieves a single request (GET /trade-analysis/{id})
+// @Summary Get request by ID
+// @Description Retrieve a single trade analysis request by ID
+// @Tags trade-analysis
+// @Produce json
+// @Param id path int true "Request ID"
+// @Success 200 {object} object
+// @Failure 400 {string} string "Invalid request ID"
+// @Failure 404 {string} string "Request not found"
+// @Router /trade-analysis/{id} [get]
 func (h *Handler) GetRequestByID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["id"], 10, 32)
@@ -109,7 +158,19 @@ func (h *Handler) GetRequestByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(request)
 }
 
-// UpdateRequest updates request fields (PUT /trade-analysis/{id})
+// @Summary Update request
+// @Description Update fields of a trade analysis request
+// @Tags trade-analysis
+// @Accept json
+// @Produce json
+// @Param id path int true "Request ID"
+// @Param updates body object true "Fields to update"
+// @Success 200 {object} object
+// @Failure 400 {string} string "Invalid request"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 500 {string} string "Update failed"
+// @Security CookieAuth
+// @Router /trade-analysis/{id} [put]
 func (h *Handler) UpdateRequest(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["id"], 10, 32)
@@ -147,7 +208,16 @@ func (h *Handler) UpdateRequest(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(request)
 }
 
-// FormRequest forms the request (PUT /trade-analysis/{id}/form)
+// @Summary Form request
+// @Description Form a trade analysis request (change status from draft to formed)
+// @Tags trade-analysis
+// @Produce json
+// @Param id path int true "Request ID"
+// @Success 200 {object} object
+// @Failure 400 {string} string "Invalid request"
+// @Failure 401 {string} string "Unauthorized"
+// @Security CookieAuth
+// @Router /trade-analysis/{id}/form [put]
 func (h *Handler) FormRequest(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["id"], 10, 32)
@@ -156,10 +226,13 @@ func (h *Handler) FormRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Получаем ID текущего пользователя через singleton функцию
-	creatorID := auth.GetCurrentUserID()
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	
-	err = h.service.FormRequest(uint(id), creatorID)
+	err = h.service.FormRequest(uint(id), userID)
 	if err != nil {
 		http.Error(w, "Failed to form request: "+err.Error(), http.StatusBadRequest)
 		return
@@ -174,12 +247,36 @@ func (h *Handler) FormRequest(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(request)
 }
 
-// CompleteOrRejectRequest completes or rejects a request (PUT /trade-analysis/{id}/moderate)
+// @Summary Complete or reject request
+// @Description Complete or reject a trade analysis request (moderator only)
+// @Tags trade-analysis
+// @Accept json
+// @Produce json
+// @Param id path int true "Request ID"
+// @Param action body object{action=string} true "Action: completed or rejected"
+// @Success 200 {object} object
+// @Failure 400 {string} string "Invalid request"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 403 {string} string "Forbidden: moderator access required"
+// @Security CookieAuth
+// @Router /trade-analysis/{id}/moderate [put]
 func (h *Handler) CompleteOrRejectRequest(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["id"], 10, 32)
 	if err != nil {
 		http.Error(w, "Invalid request ID", http.StatusBadRequest)
+		return
+	}
+	
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	
+	role, _ := middleware.GetRoleFromContext(r.Context())
+	if role != "moderator" {
+		http.Error(w, "Forbidden: moderator access required", http.StatusForbidden)
 		return
 	}
 	
@@ -193,10 +290,7 @@ func (h *Handler) CompleteOrRejectRequest(w http.ResponseWriter, r *http.Request
 		return
 	}
 	
-	// Получаем ID модератора через singleton функцию
-	moderatorID := auth.GetCurrentModeratorID()
-	
-	err = h.service.CompleteOrRejectRequest(uint(id), moderatorID, body.Action)
+	err = h.service.CompleteOrRejectRequest(uint(id), userID, body.Action)
 	if err != nil {
 		http.Error(w, "Failed to moderate request: "+err.Error(), http.StatusBadRequest)
 		return
@@ -211,7 +305,16 @@ func (h *Handler) CompleteOrRejectRequest(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(request)
 }
 
-// DeleteRequest deletes a request (DELETE /trade-analysis/{id})
+// @Summary Delete request
+// @Description Delete a trade analysis request (moderator only)
+// @Tags trade-analysis
+// @Param id path int true "Request ID"
+// @Success 200 {object} object{message=string}
+// @Failure 400 {string} string "Invalid request ID"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 403 {string} string "Forbidden: moderator access required"
+// @Security CookieAuth
+// @Router /trade-analysis/{id} [delete]
 func (h *Handler) DeleteRequest(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, err := strconv.ParseUint(vars["id"], 10, 32)

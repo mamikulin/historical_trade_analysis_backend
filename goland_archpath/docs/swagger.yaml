@@ -1,0 +1,801 @@
+basePath: /api
+definitions:
+  analysis_artifact_record.AnalysisArtifactRecord:
+    properties:
+      artifact_id:
+        type: integer
+      comment:
+        type: string
+      created_at:
+        type: string
+      is_main_entry:
+        type: boolean
+      order:
+        type: integer
+      quantity:
+        type: integer
+      request_id:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  artifact.Artifact:
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      image_url:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      production_center:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  user.User:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      login:
+        type: string
+      role:
+        type: string
+      updated_at:
+        type: string
+    type: object
+host: localhost:8000
+info:
+  contact: {}
+  description: API для системы управления артефактами и заявками
+  title: ArchPath API
+  version: "1.0"
+paths:
+  /analysis-artifact-records/{request_id}/{artifact_id}:
+    delete:
+      description: Delete an analysis artifact record (moderator only)
+      parameters:
+      - description: Request ID
+        in: path
+        name: request_id
+        required: true
+        type: integer
+      - description: Artifact ID
+        in: path
+        name: artifact_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: 'Forbidden: moderator access required'
+          schema:
+            type: string
+        "500":
+          description: Deletion failed
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Delete analysis artifact record
+      tags:
+      - analysis-artifact-records
+    put:
+      consumes:
+      - application/json
+      description: Update an analysis artifact record (moderator only)
+      parameters:
+      - description: Request ID
+        in: path
+        name: request_id
+        required: true
+        type: integer
+      - description: Artifact ID
+        in: path
+        name: artifact_id
+        required: true
+        type: integer
+      - description: Fields to update
+        in: body
+        name: updates
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/analysis_artifact_record.AnalysisArtifactRecord'
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: 'Forbidden: moderator access required'
+          schema:
+            type: string
+        "500":
+          description: Update failed
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Update analysis artifact record
+      tags:
+      - analysis-artifact-records
+  /artifacts:
+    get:
+      description: Get all artifacts with optional filters
+      parameters:
+      - description: Filter by active status
+        in: query
+        name: is_active
+        type: boolean
+      - description: Filter by production center
+        in: query
+        name: production_center
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/artifact.Artifact'
+            type: array
+        "500":
+          description: Failed to retrieve artifacts
+          schema:
+            type: string
+      summary: Get all artifacts
+      tags:
+      - artifacts
+    post:
+      consumes:
+      - application/json
+      description: Create a new artifact (moderator only)
+      parameters:
+      - description: Artifact data
+        in: body
+        name: artifact
+        required: true
+        schema:
+          $ref: '#/definitions/artifact.Artifact'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/artifact.Artifact'
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: 'Forbidden: moderator access required'
+          schema:
+            type: string
+        "500":
+          description: Creation failed
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Create artifact
+      tags:
+      - artifacts
+  /artifacts/{id}:
+    delete:
+      description: Delete an artifact (moderator only)
+      parameters:
+      - description: Artifact ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: 'Forbidden: moderator access required'
+          schema:
+            type: string
+        "500":
+          description: Deletion failed
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Delete artifact
+      tags:
+      - artifacts
+    get:
+      description: Get a single artifact by ID
+      parameters:
+      - description: Artifact ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/artifact.Artifact'
+        "404":
+          description: Artifact not found
+          schema:
+            type: string
+      summary: Get artifact by ID
+      tags:
+      - artifacts
+    put:
+      consumes:
+      - application/json
+      description: Update an existing artifact (moderator only)
+      parameters:
+      - description: Artifact ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Artifact data
+        in: body
+        name: artifact
+        required: true
+        schema:
+          $ref: '#/definitions/artifact.Artifact'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: 'Forbidden: moderator access required'
+          schema:
+            type: string
+        "500":
+          description: Update failed
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Update artifact
+      tags:
+      - artifacts
+  /artifacts/{id}/add-to-analysis:
+    post:
+      consumes:
+      - application/json
+      description: Add an artifact to the user's draft trade analysis request
+      parameters:
+      - description: Artifact ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Quantity and comment
+        in: body
+        name: body
+        schema:
+          properties:
+            comment:
+              type: string
+            quantity:
+              type: integer
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Failed to add to draft
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Add artifact to draft request
+      tags:
+      - artifacts
+  /artifacts/{id}/image:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload an image for an artifact (moderator only)
+      parameters:
+      - description: Artifact ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Image file
+        in: formData
+        name: image
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              image_url:
+                type: string
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: 'Forbidden: moderator access required'
+          schema:
+            type: string
+        "500":
+          description: Upload failed
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Upload artifact image
+      tags:
+      - artifacts
+  /trade-analysis:
+    get:
+      description: Get all trade analysis requests with optional filters. Returns
+        only user's requests for regular users, all requests for moderators
+      parameters:
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Filter by start date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: Filter by end date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+        "400":
+          description: Invalid parameters
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "500":
+          description: Failed to retrieve requests
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Get all requests
+      tags:
+      - trade-analysis
+  /trade-analysis/{id}:
+    delete:
+      description: Delete a trade analysis request (moderator only)
+      parameters:
+      - description: Request ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Invalid request ID
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: 'Forbidden: moderator access required'
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Delete request
+      tags:
+      - trade-analysis
+    get:
+      description: Retrieve a single trade analysis request by ID
+      parameters:
+      - description: Request ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "400":
+          description: Invalid request ID
+          schema:
+            type: string
+        "404":
+          description: Request not found
+          schema:
+            type: string
+      summary: Get request by ID
+      tags:
+      - trade-analysis
+    put:
+      consumes:
+      - application/json
+      description: Update fields of a trade analysis request
+      parameters:
+      - description: Request ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Fields to update
+        in: body
+        name: updates
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Update failed
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Update request
+      tags:
+      - trade-analysis
+  /trade-analysis/{id}/form:
+    put:
+      description: Form a trade analysis request (change status from draft to formed)
+      parameters:
+      - description: Request ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Form request
+      tags:
+      - trade-analysis
+  /trade-analysis/{id}/moderate:
+    put:
+      consumes:
+      - application/json
+      description: Complete or reject a trade analysis request (moderator only)
+      parameters:
+      - description: Request ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 'Action: completed or rejected'
+        in: body
+        name: action
+        required: true
+        schema:
+          properties:
+            action:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: 'Forbidden: moderator access required'
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Complete or reject request
+      tags:
+      - trade-analysis
+  /trade-analysis/cart:
+    get:
+      description: Retrieve the draft cart for the current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Failed to retrieve cart
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Get draft cart
+      tags:
+      - trade-analysis
+  /users/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and create session
+      parameters:
+      - description: Login credentials
+        in: body
+        name: credentials
+        required: true
+        schema:
+          properties:
+            login:
+              type: string
+            password:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.User'
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "401":
+          description: Authentication failed
+          schema:
+            type: string
+      summary: Login
+      tags:
+      - users
+  /users/logout:
+    post:
+      description: Logout current user and destroy session
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Logout
+      tags:
+      - users
+  /users/me:
+    get:
+      description: Get information about the currently authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.User'
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: User not found
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Get current user
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: Update information of the currently authenticated user
+      parameters:
+      - description: User data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/user.User'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.User'
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Update failed
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Update current user
+      tags:
+      - users
+  /users/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user account
+      parameters:
+      - description: Registration data
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            password:
+              type: string
+            user:
+              $ref: '#/definitions/user.User'
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/user.User'
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "500":
+          description: Registration failed
+          schema:
+            type: string
+      summary: Register a new user
+      tags:
+      - users
+securityDefinitions:
+  CookieAuth:
+    in: cookie
+    name: session_id
+    type: apiKey
+swagger: "2.0"

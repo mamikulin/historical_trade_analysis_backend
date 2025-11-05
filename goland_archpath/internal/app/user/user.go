@@ -1,13 +1,12 @@
 package user
 
-import (
-    "gorm.io/gorm"
-)
-
+import "time"
 
 type User struct {
-	gorm.Model
-	Login        string `gorm:"uniqueIndex;not null" json:"login"`
-	PasswordHash string `json:"-"`
-	IsModerator  bool   `gorm:"not null;default:false" json:"is_moderator"`
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	Login        string    `gorm:"unique;not null" json:"login"`
+	PasswordHash string    `gorm:"not null" json:"-"`
+	Role         string    `gorm:"not null;default:'user'" json:"role"` 
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }

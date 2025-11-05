@@ -2,6 +2,7 @@ package trade_analysis
 
 import (
 	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -35,7 +36,8 @@ func (r *Repository) GetDraftByCreatorID(creatorID uint) (*TradeAnalysis, error)
 	return &request, nil
 }
 
-func (r *Repository) GetAllRequests(status string, startDate, endDate *time.Time) ([]TradeAnalysis, error) {
+// Обновленный метод: добавлен параметр creatorID
+func (r *Repository) GetAllRequests(status string, startDate, endDate *time.Time, creatorID *uint) ([]TradeAnalysis, error) {
 	var requests []TradeAnalysis
 	query := r.DB.Where("status != ? AND deleted_at IS NULL", "draft")
 	
@@ -50,6 +52,13 @@ func (r *Repository) GetAllRequests(status string, startDate, endDate *time.Time
 	if endDate != nil {
 		query = query.Where("formation_date <= ?", endDate)
 	}
+	
+	// Фильтрация по creator_id для обычных пользователей
+	// Если creatorID не nil, показываем только заявки этого пользователя
+	if creatorID != nil {
+		query = query.Where("creator_id = ?", *creatorID)
+	}
+	// Если creatorID == nil, значит это модератор и показываем все заявки
 	
 	err := query.Find(&requests).Error
 	return requests, err

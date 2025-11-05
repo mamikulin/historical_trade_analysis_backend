@@ -1,7 +1,7 @@
 package artifact
 
 import (
-	"archpath/internal/app/auth"
+	"archpath/internal/middleware"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -27,6 +27,15 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/artifacts/{id:[0-9]+}/add-to-analysis", h.AddToDraft).Methods("POST")
 }
 
+// @Summary Get all artifacts
+// @Description Get all artifacts with optional filters
+// @Tags artifacts
+// @Produce json
+// @Param is_active query boolean false "Filter by active status"
+// @Param production_center query string false "Filter by production center"
+// @Success 200 {array} Artifact
+// @Failure 500 {string} string "Failed to retrieve artifacts"
+// @Router /artifacts [get]
 func (h *Handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	filters := map[string]interface{}{}
 
@@ -47,6 +56,14 @@ func (h *Handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(artifacts)
 }
 
+// @Summary Get artifact by ID
+// @Description Get a single artifact by ID
+// @Tags artifacts
+// @Produce json
+// @Param id path int true "Artifact ID"
+// @Success 200 {object} Artifact
+// @Failure 404 {string} string "Artifact not found"
+// @Router /artifacts/{id} [get]
 func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(mux.Vars(r)["id"])
 	artifact, err := h.service.GetByID(uint(id))
@@ -57,6 +74,19 @@ func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(artifact)
 }
 
+// @Summary Create artifact
+// @Description Create a new artifact (moderator only)
+// @Tags artifacts
+// @Accept json
+// @Produce json
+// @Param artifact body Artifact true "Artifact data"
+// @Success 201 {object} Artifact
+// @Failure 400 {string} string "Invalid request"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 403 {string} string "Forbidden: moderator access required"
+// @Failure 500 {string} string "Creation failed"
+// @Security CookieAuth
+// @Router /artifacts [post]
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	var artifact Artifact
 	if err := json.NewDecoder(r.Body).Decode(&artifact); err != nil {
@@ -67,9 +97,24 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(artifact)
 }
 
+// @Summary Update artifact
+// @Description Update an existing artifact (moderator only)
+// @Tags artifacts
+// @Accept json
+// @Produce json
+// @Param id path int true "Artifact ID"
+// @Param artifact body Artifact true "Artifact data"
+// @Success 200 {string} string "OK"
+// @Failure 400 {string} string "Invalid request"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 403 {string} string "Forbidden: moderator access required"
+// @Failure 500 {string} string "Update failed"
+// @Security CookieAuth
+// @Router /artifacts/{id} [put]
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(mux.Vars(r)["id"])
 	var data Artifact
@@ -84,6 +129,16 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// @Summary Delete artifact
+// @Description Delete an artifact (moderator only)
+// @Tags artifacts
+// @Param id path int true "Artifact ID"
+// @Success 204 {string} string "No Content"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 403 {string} string "Forbidden: moderator access required"
+// @Failure 500 {string} string "Deletion failed"
+// @Security CookieAuth
+// @Router /artifacts/{id} [delete]
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(mux.Vars(r)["id"])
 	if err := h.service.Delete(uint(id)); err != nil {
@@ -93,6 +148,20 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// @Summary Upload artifact image
+// @Description Upload an image for an artifact (moderator only)
+// @Tags artifacts
+// @Accept multipart/form-data
+// @Produce json
+// @Param id path int true "Artifact ID"
+// @Param image formData file true "Image file"
+// @Success 200 {object} object{image_url=string}
+// @Failure 400 {string} string "Invalid request"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 403 {string} string "Forbidden: moderator access required"
+// @Failure 500 {string} string "Upload failed"
+// @Security CookieAuth
+// @Router /artifacts/{id}/image [post]
 func (h *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(mux.Vars(r)["id"])
 	file, fileHeader, err := r.FormFile("image")
@@ -110,13 +179,26 @@ func (h *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"image_url": url})
 }
 
-// AddToDraft adds an artifact to the user's draft request (POST /artifacts/{id}/add-to-analysis)
-// Заявка создается пустой с автоматическим указанием создателя, даты создания и статуса
+// @Summary Add artifact to draft request
+// @Description Add an artifact to the user's draft trade analysis request
+// @Tags artifacts
+// @Accept json
+// @Produce json
+// @Param id path int true "Artifact ID"
+// @Param body body object{quantity=int,comment=string} false "Quantity and comment"
+// @Success 201 {object} object
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 500 {string} string "Failed to add to draft"
+// @Security CookieAuth
+// @Router /artifacts/{id}/add-to-analysis [post]
 func (h *Handler) AddToDraft(w http.ResponseWriter, r *http.Request) {
 	artifactID, _ := strconv.Atoi(mux.Vars(r)["id"])
 	
-	// Получаем ID текущего пользователя через singleton функцию
-	creatorID := auth.GetCurrentUserID()
+	userID, ok := middleware.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	
 	var body struct {
 		Quantity int    `json:"quantity"`
@@ -135,7 +217,7 @@ func (h *Handler) AddToDraft(w http.ResponseWriter, r *http.Request) {
 		body.Quantity = 1
 	}
 	
-	result, err := h.service.AddToDraft(uint(artifactID), creatorID, body.Quantity, body.Comment)
+	result, err := h.service.AddToDraft(uint(artifactID), userID, body.Quantity, body.Comment)
 	if err != nil {
 		http.Error(w, "Failed to add to draft: "+err.Error(), http.StatusInternalServerError)
 		return
