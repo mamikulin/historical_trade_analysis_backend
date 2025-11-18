@@ -3,12 +3,13 @@ package api
 import (
 	"archpath/internal/app/analysis_artifact_record"
 	"archpath/internal/app/artifact"
-	"archpath/internal/app/session"
 	"archpath/internal/app/trade_analysis"
 	"archpath/internal/app/user"
 	"archpath/internal/middleware"
 	"log"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -21,20 +22,29 @@ func StartServer(
 	userService *user.Service,
 	aarService *analysis_artifact_record.Service,
 	taService *trade_analysis.Service,
-	sessionManager *session.Manager,
 ) {
+	// Получаем JWT конфигурацию из переменных окружения
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Println("WARNING: JWT_SECRET not set, using default (CHANGE IN PRODUCTION!)")
+		jwtSecret = "default-secret-key-change-in-production"
+	}
+
+	jwtExpiryHours := 24 // Можно также получить из переменной окружения
+	jwtExpiry := time.Duration(jwtExpiryHours) * time.Hour
+
 	r := mux.NewRouter()
 
 	// Swagger UI (публичный доступ)
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
-	// Применяем AuthMiddleware ко всем маршрутам
-	r.Use(middleware.AuthMiddleware(sessionManager))
+	// Применяем JWT AuthMiddleware ко всем маршрутам
+	r.Use(middleware.AuthMiddleware(jwtSecret))
 
 	api := r.PathPrefix("/api").Subrouter()
 
 	// User routes (публичные и авторизованные)
-	userHandler := user.NewHandler(userService, sessionManager)
+	userHandler := user.NewHandler(userService, jwtSecret, jwtExpiry)
 	// Публичные
 	api.HandleFunc("/users/register", userHandler.Register).Methods("POST")
 	api.HandleFunc("/users/login", userHandler.Login).Methods("POST")

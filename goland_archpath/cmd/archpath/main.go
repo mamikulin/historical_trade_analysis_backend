@@ -5,11 +5,9 @@ import (
 	"archpath/internal/app/analysis_artifact_record"
 	"archpath/internal/app/artifact"
 	"archpath/internal/app/minio"
-	"archpath/internal/app/session"
 	"archpath/internal/app/trade_analysis"
 	"archpath/internal/app/user"
 	"log"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/postgres"
@@ -23,9 +21,11 @@ const dsn = "host=localhost user=myuser password=mypassword dbname=mydb port=543
 // @description API для системы управления артефактами и заявками
 // @host localhost:8000
 // @BasePath /api
-// @securityDefinitions.apikey CookieAuth
-// @in cookie
-// @name session_id
+// @securityDefinitions.http BearerAuth
+// @in header
+// @name Authorization
+// @scheme bearer
+// @bearerFormat JWT
 func main() {
 	log.Println("Application start")
 
@@ -44,12 +44,7 @@ func main() {
 		logrus.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	// Инициализация Session Manager
-	sessionManager, err := session.NewManager("localhost:6379", 24*time.Hour)
-	if err != nil {
-		logrus.Fatalf("Failed to initialize session manager: %v", err)
-	}
-	log.Println("Session manager initialized")
+	log.Println("Database migrations completed")
 
 	// Инициализация репозиториев и сервисов
 	artifactRepo, err := artifact.NewRepository(dsn)
@@ -74,7 +69,6 @@ func main() {
 	if err != nil {
 		logrus.Fatalf("Failed to initialize user repository: %v", err)
 	}
-
 	userService := user.NewService(userRepo)
 
 	aarRepo := analysis_artifact_record.NewRepository(db)
@@ -83,8 +77,10 @@ func main() {
 	taRepo := trade_analysis.NewRepository(db)
 	taService := trade_analysis.NewService(taRepo)
 
-	// Запуск сервера
-	api.StartServer(artifactService, userService, aarService, taService, sessionManager)
+	log.Println("All services initialized successfully")
+
+	// Запуск сервера (без sessionManager)
+	api.StartServer(artifactService, userService, aarService, taService)
 
 	log.Println("Application terminated")
 }

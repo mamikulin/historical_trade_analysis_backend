@@ -1,21 +1,23 @@
 package user
 
 import (
-	"archpath/internal/app/session"
 	"archpath/internal/middleware"
 	"encoding/json"
 	"net/http"
+	"time"
 )
 
 type Handler struct {
-	service        *Service
-	sessionManager *session.Manager
+	service    *Service
+	jwtSecret  string
+	jwtExpiry  time.Duration
 }
 
-func NewHandler(service *Service, sessionManager *session.Manager) *Handler {
+func NewHandler(service *Service, jwtSecret string, jwtExpiry time.Duration) *Handler {
 	return &Handler{
-		service:        service,
-		sessionManager: sessionManager,
+		service:    service,
+		jwtSecret:  jwtSecret,
+		jwtExpiry:  jwtExpiry,
 	}
 }
 
@@ -57,12 +59,12 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Login
-// @Description Authenticate user and create session
+// @Description Authenticate user and get JWT token
 // @Tags users
 // @Accept json
 // @Produce json
 // @Param credentials body object{login=string,password=string} true "Login credentials"
-// @Success 200 {object} User
+// @Success 200 {object} object{user=User,token=string}
 // @Failure 400 {string} string "Invalid request"
 // @Failure 401 {string} string "Authentication failed"
 // @Router /users/login [post]
@@ -84,26 +86,22 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Создаем сессию
-	sessionID, err := h.sessionManager.CreateSession(r.Context(), user.ID, user.Role)
+	// Генерируем JWT токен
+	token, err := middleware.GenerateJWT(user.ID, user.Role, h.jwtSecret, h.jwtExpiry)
 	if err != nil {
-		http.Error(w, "Failed to create session", http.StatusInternalServerError)
+		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
 		return
 	}
 
-	// Устанавливаем cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session_id",
-		Value:    sessionID,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   false, // В продакшене должно быть true
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   86400, // 24 часа
-	})
-
 	user.PasswordHash = ""
-	json.NewEncoder(w).Encode(user)
+	
+	response := map[string]interface{}{
+		"user":  user,
+		"token": token,
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 // @Summary Get current user
@@ -113,8 +111,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} User
 // @Failure 401 {string} string "Unauthorized"
 // @Failure 404 {string} string "User not found"
-// @Security CookieAuth
-// @Router /users/me [get]
+// @Security BearerAuth
+// @Router /api/users/me [get]
 func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok {
@@ -142,7 +140,7 @@ func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {string} string "Invalid request"
 // @Failure 401 {string} string "Unauthorized"
 // @Failure 500 {string} string "Update failed"
-// @Security CookieAuth
+// @Security BearerAuth
 // @Router /users/me [put]
 func (h *Handler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserIDFromContext(r.Context())
@@ -175,28 +173,19 @@ func (h *Handler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary Logout
-// @Description Logout current user and destroy session
+// @Description Logout current user (client-side token deletion)
 // @Tags users
 // @Produce json
 // @Success 200 {object} object{message=string}
-// @Security CookieAuth
+// @Security BearerAuth
 // @Router /users/logout [post]
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("session_id")
-	if err == nil {
-		// Удаляем сессию из Redis
-		h.sessionManager.DeleteSession(r.Context(), cookie.Value)
-	}
-
-	// Очищаем cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session_id",
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		MaxAge:   -1,
-	})
-
+	// With JWT, logout is handled client-side by deleting the token
+	// Optionally, you could implement a token blacklist here
+	
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Logged out successfully"})
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Logged out successfully. Please delete your token.",
+	})
 }
