@@ -1,6 +1,7 @@
 package trade_analysis
 
 import (
+	"archpath/internal/app/analysis_artifact_record"
 	"fmt"
 	"time"
 )
@@ -25,25 +26,24 @@ func (s *Service) GetDraftCart(creatorID uint) (map[string]interface{}, error) {
 			return nil, fmt.Errorf("failed to create draft: %w", err)
 		}
 	}
-	
+
 	count, err := s.repo.CountEntriesByRequestID(draft.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count entries: %w", err)
 	}
-	
+
 	return map[string]interface{}{
 		"request_id":    draft.ID,
 		"entries_count": count,
 	}, nil
 }
 
-// Добавлен параметр creatorID для фильтрации
 func (s *Service) GetAllRequests(status string, startDate, endDate *time.Time, creatorID *uint) ([]map[string]interface{}, error) {
 	requests, err := s.repo.GetAllRequests(status, startDate, endDate, creatorID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	result := make([]map[string]interface{}, len(requests))
 	for i, req := range requests {
 		result[i] = map[string]interface{}{
@@ -55,10 +55,9 @@ func (s *Service) GetAllRequests(status string, startDate, endDate *time.Time, c
 			"completion_date":      req.CompletionDate,
 			"moderator_id":         req.ModeratorID,
 			"total_finds_quantity": req.TotalFindsQuantity,
-			"analysis_result":      req.AnalysisResult,
 		}
 	}
-	
+
 	return result, nil
 }
 
@@ -67,12 +66,12 @@ func (s *Service) GetRequestByID(id uint) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("request not found: %w", err)
 	}
-	
+
 	entries, err := s.repo.GetEntriesWithArtifacts(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve entries: %w", err)
 	}
-	
+
 	return map[string]interface{}{
 		"id":                   request.ID,
 		"status":               request.Status,
@@ -82,7 +81,6 @@ func (s *Service) GetRequestByID(id uint) (map[string]interface{}, error) {
 		"completion_date":      request.CompletionDate,
 		"moderator_id":         request.ModeratorID,
 		"total_finds_quantity": request.TotalFindsQuantity,
-		"analysis_result":      request.AnalysisResult,
 		"entries":              entries,
 	}, nil
 }
@@ -92,7 +90,7 @@ func (s *Service) UpdateRequest(id uint, updates map[string]interface{}) error {
 	if err != nil {
 		return fmt.Errorf("request not found: %w", err)
 	}
-	
+
 	return s.repo.UpdateRequest(id, updates)
 }
 
@@ -101,15 +99,15 @@ func (s *Service) FormRequest(id uint, creatorID uint) error {
 	if err != nil {
 		return fmt.Errorf("request not found: %w", err)
 	}
-	
+
 	if request.CreatorID != creatorID {
 		return fmt.Errorf("unauthorized: only creator can form the request")
 	}
-	
+
 	if request.SiteName == "" {
 		return fmt.Errorf("site_name is required")
 	}
-	
+
 	count, err := s.repo.CountEntriesByRequestID(id)
 	if err != nil {
 		return fmt.Errorf("failed to count entries: %w", err)
@@ -117,13 +115,13 @@ func (s *Service) FormRequest(id uint, creatorID uint) error {
 	if count == 0 {
 		return fmt.Errorf("cannot form request without entries")
 	}
-	
+
 	now := time.Now()
 	updates := map[string]interface{}{
 		"status":         "formed",
 		"formation_date": &now,
 	}
-	
+
 	return s.repo.UpdateRequest(id, updates)
 }
 
@@ -132,33 +130,69 @@ func (s *Service) CompleteOrRejectRequest(id uint, moderatorID uint, action stri
 	if err != nil {
 		return fmt.Errorf("request not found: %w", err)
 	}
-	
+
 	if action != "completed" && action != "rejected" {
 		return fmt.Errorf("invalid action: must be 'completed' or 'rejected'")
 	}
-	
+
 	if request.Status != "formed" {
 		return fmt.Errorf("can only complete/reject formed requests")
 	}
-	
+
 	now := time.Now()
 	updates := map[string]interface{}{
 		"status":          action,
 		"moderator_id":    moderatorID,
 		"completion_date": &now,
 	}
-	
+
 	if action == "completed" {
 		entries, err := s.repo.GetEntriesWithArtifacts(id)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve entries: %w", err)
 		}
-		
-		analysisResult := request.GetPercentageByRegion(entries)
-		updates["analysis_result"] = analysisResult
+
+		if err := s.calculateAndUpdatePercentages(id, entries); err != nil {
+			return fmt.Errorf("failed to calculate percentages: %w", err)
+		}
 	}
-	
+
 	return s.repo.UpdateRequest(id, updates)
+}
+
+func (s *Service) calculateAndUpdatePercentages(requestID uint, entries []analysis_artifact_record.AnalysisArtifactRecord) error {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	// Group quantities by region (production center)
+	regionCounts := make(map[string]int)
+	totalQuantity := 0
+
+	for _, entry := range entries {
+		regionCounts[entry.Artifact.ProductionCenter] += entry.Quantity
+		totalQuantity += entry.Quantity
+	}
+
+	if totalQuantity == 0 {
+		return nil
+	}
+
+	// Update percentage for each record
+	for _, entry := range entries {
+		regionTotal := regionCounts[entry.Artifact.ProductionCenter]
+		percentage := (float64(regionTotal) / float64(totalQuantity)) * 100
+
+		updates := map[string]interface{}{
+			"percentage": percentage,
+		}
+
+		if err := s.repo.UpdateAnalysisArtifactRecord(entry.RequestID, entry.ArtifactID, updates); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *Service) DeleteRequest(id uint) error {
@@ -166,10 +200,10 @@ func (s *Service) DeleteRequest(id uint) error {
 	if err != nil {
 		return fmt.Errorf("request not found: %w", err)
 	}
-	
+
 	if request.FormationDate == nil {
 		return fmt.Errorf("can only delete formed requests")
 	}
-	
+
 	return s.repo.DeleteRequest(id)
 }

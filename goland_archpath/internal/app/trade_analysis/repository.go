@@ -1,17 +1,22 @@
 package trade_analysis
 
 import (
+	"archpath/internal/app/analysis_artifact_record"
 	"time"
 
 	"gorm.io/gorm"
 )
 
 type Repository struct {
-	DB *gorm.DB
+	DB                        *gorm.DB
+	analysisArtifactRecordRepo *analysis_artifact_record.Repository
 }
 
 func NewRepository(db *gorm.DB) *Repository {
-	return &Repository{DB: db}
+	return &Repository{
+		DB:                        db,
+		analysisArtifactRecordRepo: analysis_artifact_record.NewRepository(db),
+	}
 }
 
 func (r *Repository) CreateRequest(request *TradeAnalysis) error {
@@ -36,30 +41,24 @@ func (r *Repository) GetDraftByCreatorID(creatorID uint) (*TradeAnalysis, error)
 	return &request, nil
 }
 
-// Обновленный метод: добавлен параметр creatorID
 func (r *Repository) GetAllRequests(status string, startDate, endDate *time.Time, creatorID *uint) ([]TradeAnalysis, error) {
 	var requests []TradeAnalysis
 	query := r.DB.Where("status != ? AND deleted_at IS NULL", "draft")
-	
+
 	if status != "" {
 		query = query.Where("status = ?", status)
 	}
-	
 	if startDate != nil {
 		query = query.Where("formation_date >= ?", startDate)
 	}
-	
 	if endDate != nil {
 		query = query.Where("formation_date <= ?", endDate)
 	}
-	
-	// Фильтрация по creator_id для обычных пользователей
-	// Если creatorID не nil, показываем только заявки этого пользователя
+
 	if creatorID != nil {
 		query = query.Where("creator_id = ?", *creatorID)
 	}
-	// Если creatorID == nil, значит это модератор и показываем все заявки
-	
+
 	err := query.Find(&requests).Error
 	return requests, err
 }
@@ -72,15 +71,8 @@ func (r *Repository) DeleteRequest(id uint) error {
 	return r.DB.Delete(&TradeAnalysis{}, id).Error
 }
 
-func (r *Repository) GetEntriesWithArtifacts(requestID uint) ([]AnalysisArtifactRecordWithArtifact, error) {
-	var entries []AnalysisArtifactRecordWithArtifact
-	err := r.DB.Table("analysis_artifact_records").
-		Select("analysis_artifact_records.request_id, analysis_artifact_records.artifact_id, analysis_artifact_records.quantity, analysis_artifact_records.order, artifacts.production_center").
-		Joins("LEFT JOIN artifacts ON artifacts.id = analysis_artifact_records.artifact_id").
-		Where("analysis_artifact_records.request_id = ?", requestID).
-		Order("analysis_artifact_records.order ASC").
-		Scan(&entries).Error
-	return entries, err
+func (r *Repository) GetEntriesWithArtifacts(requestID uint) ([]analysis_artifact_record.AnalysisArtifactRecord, error) {
+	return r.analysisArtifactRecordRepo.GetRecordsByRequestIDWithArtifacts(requestID)
 }
 
 func (r *Repository) CountEntriesByRequestID(requestID uint) (int64, error) {
@@ -89,4 +81,8 @@ func (r *Repository) CountEntriesByRequestID(requestID uint) (int64, error) {
 		Where("request_id = ?", requestID).
 		Count(&count).Error
 	return count, err
+}
+
+func (r *Repository) UpdateAnalysisArtifactRecord(requestID, artifactID uint, updates map[string]interface{}) error {
+	return r.analysisArtifactRecordRepo.UpdateRecord(requestID, artifactID, updates)
 }

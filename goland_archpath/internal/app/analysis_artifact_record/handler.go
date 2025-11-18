@@ -59,6 +59,7 @@ func (h *Handler) UpdateRecord(w http.ResponseWriter, r *http.Request) {
 
 	delete(updates, "request_id")
 	delete(updates, "artifact_id")
+	delete(updates, "percentage") // Percentage is calculated, not manually updated
 
 	err = h.service.UpdateRecord(uint(requestID), uint(artifactID), updates)
 	if err != nil {

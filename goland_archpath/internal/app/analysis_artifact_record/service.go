@@ -22,7 +22,6 @@ func (s *Service) CreateRecord(record *AnalysisArtifactRecord) error {
 	if record.Quantity <= 0 {
 		return fmt.Errorf("quantity must be greater than 0")
 	}
-
 	return s.repo.CreateRecord(record)
 }
 
@@ -58,7 +57,6 @@ func (s *Service) DeleteRecord(requestID, artifactID uint) error {
 	if err != nil {
 		return fmt.Errorf("record not found: %w", err)
 	}
-
 	return s.repo.DeleteRecord(requestID, artifactID)
 }
 

@@ -19,25 +19,12 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(r *mux.Router) {
-	// GET иконки корзины (draft cart)
 	r.HandleFunc("/trade-analysis/cart", h.GetDraftCart).Methods("GET")
-	
-	// GET список заявок с фильтрацией
 	r.HandleFunc("/trade-analysis", h.GetAllRequests).Methods("GET")
-	
-	// GET одна заявка с услугами
 	r.HandleFunc("/trade-analysis/{id}", h.GetRequestByID).Methods("GET")
-	
-	// PUT изменения полей заявки
 	r.HandleFunc("/trade-analysis/{id}", h.UpdateRequest).Methods("PUT")
-	
-	// PUT сформировать заявку создателем
 	r.HandleFunc("/trade-analysis/{id}/form", h.FormRequest).Methods("PUT")
-	
-	// PUT завершить/отклонить заявку модератором
 	r.HandleFunc("/trade-analysis/{id}/moderate", h.CompleteOrRejectRequest).Methods("PUT")
-	
-	// DELETE удаление заявки
 	r.HandleFunc("/trade-analysis/{id}", h.DeleteRequest).Methods("DELETE")
 }
 
@@ -56,13 +43,13 @@ func (h *Handler) GetDraftCart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	
+
 	cart, err := h.service.GetDraftCart(userID)
 	if err != nil {
 		http.Error(w, "Failed to retrieve cart: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	json.NewEncoder(w).Encode(cart)
 }
 
@@ -83,20 +70,18 @@ func (h *Handler) GetDraftCart(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetAllRequests(w http.ResponseWriter, r *http.Request) {
 	userID, userAuthenticated := middleware.GetUserIDFromContext(r.Context())
 	role, _ := middleware.GetRoleFromContext(r.Context())
-	
-	// Если пользователь не авторизован - возвращаем 401
+
 	if !userAuthenticated {
 		http.Error(w, "Unauthorized: authentication required", http.StatusUnauthorized)
 		return
 	}
-	
-	// Parse query parameters
+
 	status := r.URL.Query().Get("status")
 	startDateStr := r.URL.Query().Get("start_date")
 	endDateStr := r.URL.Query().Get("end_date")
-	
+
 	var startDate, endDate *time.Time
-	
+
 	if startDateStr != "" {
 		parsed, err := time.Parse("2006-01-02", startDateStr)
 		if err != nil {
@@ -105,7 +90,7 @@ func (h *Handler) GetAllRequests(w http.ResponseWriter, r *http.Request) {
 		}
 		startDate = &parsed
 	}
-	
+
 	if endDateStr != "" {
 		parsed, err := time.Parse("2006-01-02", endDateStr)
 		if err != nil {
@@ -114,21 +99,18 @@ func (h *Handler) GetAllRequests(w http.ResponseWriter, r *http.Request) {
 		}
 		endDate = &parsed
 	}
-	
-	// Определяем, нужно ли фильтровать по creatorID
+
 	var creatorIDFilter *uint
 	if role != "moderator" {
-		// Обычный пользователь видит только свои заявки
 		creatorIDFilter = &userID
 	}
-	// Модератор видит все заявки (creatorIDFilter остается nil)
-	
+
 	requests, err := h.service.GetAllRequests(status, startDate, endDate, creatorIDFilter)
 	if err != nil {
 		http.Error(w, "Failed to retrieve requests: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	json.NewEncoder(w).Encode(requests)
 }
 
@@ -148,13 +130,13 @@ func (h *Handler) GetRequestByID(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request ID", http.StatusBadRequest)
 		return
 	}
-	
+
 	request, err := h.service.GetRequestByID(uint(id))
 	if err != nil {
 		http.Error(w, "Request not found: "+err.Error(), http.StatusNotFound)
 		return
 	}
-	
+
 	json.NewEncoder(w).Encode(request)
 }
 
@@ -178,33 +160,32 @@ func (h *Handler) UpdateRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request ID", http.StatusBadRequest)
 		return
 	}
-	
+
 	var updates map[string]interface{}
 	err = json.NewDecoder(r.Body).Decode(&updates)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	
-	// Prevent updating protected fields
+
 	delete(updates, "id")
 	delete(updates, "creator_id")
 	delete(updates, "formation_date")
 	delete(updates, "completion_date")
 	delete(updates, "moderator_id")
-	
+
 	err = h.service.UpdateRequest(uint(id), updates)
 	if err != nil {
 		http.Error(w, "Failed to update request: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	request, err := h.service.GetRequestByID(uint(id))
 	if err != nil {
 		http.Error(w, "Failed to retrieve updated request: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	json.NewEncoder(w).Encode(request)
 }
 
@@ -225,25 +206,25 @@ func (h *Handler) FormRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request ID", http.StatusBadRequest)
 		return
 	}
-	
+
 	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	
+
 	err = h.service.FormRequest(uint(id), userID)
 	if err != nil {
 		http.Error(w, "Failed to form request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	
+
 	request, err := h.service.GetRequestByID(uint(id))
 	if err != nil {
 		http.Error(w, "Failed to retrieve formed request: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	json.NewEncoder(w).Encode(request)
 }
 
@@ -267,41 +248,41 @@ func (h *Handler) CompleteOrRejectRequest(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Invalid request ID", http.StatusBadRequest)
 		return
 	}
-	
+
 	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	
+
 	role, _ := middleware.GetRoleFromContext(r.Context())
 	if role != "moderator" {
 		http.Error(w, "Forbidden: moderator access required", http.StatusForbidden)
 		return
 	}
-	
+
 	var body struct {
 		Action string `json:"action"` // "completed" or "rejected"
 	}
-	
+
 	err = json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	
+
 	err = h.service.CompleteOrRejectRequest(uint(id), userID, body.Action)
 	if err != nil {
 		http.Error(w, "Failed to moderate request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	
+
 	request, err := h.service.GetRequestByID(uint(id))
 	if err != nil {
 		http.Error(w, "Failed to retrieve moderated request: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	json.NewEncoder(w).Encode(request)
 }
 
@@ -322,13 +303,13 @@ func (h *Handler) DeleteRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request ID", http.StatusBadRequest)
 		return
 	}
-	
+
 	err = h.service.DeleteRequest(uint(id))
 	if err != nil {
 		http.Error(w, "Failed to delete request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Request deleted successfully"})
 }

@@ -31,6 +31,16 @@ func (r *Repository) GetRecordsByRequestID(requestID uint) ([]AnalysisArtifactRe
 	return records, err
 }
 
+func (r *Repository) GetRecordsByRequestIDWithArtifacts(requestID uint) ([]AnalysisArtifactRecord, error) {
+	var records []AnalysisArtifactRecord
+	err := r.DB.
+		Preload("Artifact").
+		Where("request_id = ?", requestID).
+		Order(`"order" ASC`).
+		Find(&records).Error
+	return records, err
+}
+
 func (r *Repository) GetRecordsByArtifactID(artifactID uint) ([]AnalysisArtifactRecord, error) {
 	var records []AnalysisArtifactRecord
 	err := r.DB.Where("artifact_id = ?", artifactID).Find(&records).Error
