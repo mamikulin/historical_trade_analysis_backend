@@ -2,6 +2,7 @@ package analysis_artifact_record
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -110,4 +111,67 @@ func (h *Handler) DeleteRecord(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Record deleted successfully"})
+}
+
+// UpdateCalculatedValue обновляет calculated_value для м-м записи
+// Использует токен-авторизацию (константа)
+// @Summary Update calculated value (async callback)
+// @Description Receives calculated value from async service
+// @Tags analysis-artifact-records
+// @Accept json
+// @Produce json
+// @Param request_id path int true "Request ID"
+// @Param artifact_id path int true "Artifact ID"
+// @Param X-API-Token header string true "API Token"
+// @Param payload body object true "Calculated value payload"
+// @Success 200 {object} object{status=string,message=string}
+// @Failure 400 {string} string "Invalid request"
+// @Failure 401 {string} string "Unauthorized"
+// @Failure 500 {string} string "Update failed"
+// @Router /trade-analysis/{request_id}/entries/{artifact_id}/result [put]
+func (h *Handler) UpdateCalculatedValue(w http.ResponseWriter, r *http.Request) {
+	// Проверка токена (константа для лабораторной)
+	token := r.Header.Get("X-API-Token")
+	if token != "async-calc-token-8bytes" {
+		http.Error(w, "Unauthorized: invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	requestID, err := strconv.ParseUint(vars["request_id"], 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid request ID", http.StatusBadRequest)
+		return
+	}
+
+	artifactID, err := strconv.ParseUint(vars["artifact_id"], 10, 32)
+	if err != nil {
+		http.Error(w, "Invalid artifact ID", http.StatusBadRequest)
+		return
+	}
+
+	var payload struct {
+		RequestID       uint    `json:"request_id"`
+		ArtifactID      uint    `json:"artifact_id"`
+		CalculatedValue float64 `json:"calculated_value"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.UpdateCalculatedValue(uint(requestID), uint(artifactID), payload.CalculatedValue); err != nil {
+		http.Error(w, "Failed to update calculated value: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Артефакт %d: количество из того же региона = %.2f%%", artifactID, payload.CalculatedValue)
+	log.Printf("Результаты отправлены для заявки ID: %d (1 артефактов)", requestID)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "success",
+		"message": "Calculated value updated",
+	})
 }

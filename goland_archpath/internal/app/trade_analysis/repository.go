@@ -86,3 +86,12 @@ func (r *Repository) CountEntriesByRequestID(requestID uint) (int64, error) {
 func (r *Repository) UpdateAnalysisArtifactRecord(requestID, artifactID uint, updates map[string]interface{}) error {
 	return r.analysisArtifactRecordRepo.UpdateRecord(requestID, artifactID, updates)
 }
+
+// CountCompletedEntries подсчитывает количество м-м записей с непустым calculated_value
+func (r *Repository) CountCompletedEntries(requestID uint) (int64, error) {
+	var count int64
+	err := r.DB.Table("analysis_artifact_records").
+		Where("request_id = ? AND calculated_value IS NOT NULL", requestID).
+		Count(&count).Error
+	return count, err
+}

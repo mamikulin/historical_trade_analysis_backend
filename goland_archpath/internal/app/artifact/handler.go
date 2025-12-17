@@ -212,8 +212,7 @@ func (h *Handler) AddToDraft(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	var body struct {
-		Quantity int    `json:"quantity"`
-		Comment  string `json:"comment"`
+		Quantity int `json:"quantity"`
 	}
 	
 	// Default quantity to 1 if not provided
@@ -228,7 +227,7 @@ func (h *Handler) AddToDraft(w http.ResponseWriter, r *http.Request) {
 		body.Quantity = 1
 	}
 	
-	result, err := h.service.AddToDraft(uint(artifactID), userID, body.Quantity, body.Comment)
+	result, err := h.service.AddToDraft(uint(artifactID), userID, body.Quantity)
 	if err != nil {
 		log.Printf("Failed to add artifact %d to draft: %v", artifactID, err)
 		http.Error(w, "Failed to add to draft: "+err.Error(), http.StatusInternalServerError)

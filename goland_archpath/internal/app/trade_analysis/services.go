@@ -2,7 +2,12 @@ package trade_analysis
 
 import (
 	"archpath/internal/app/analysis_artifact_record"
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"net/http"
 	"time"
 )
 
@@ -46,15 +51,21 @@ func (s *Service) GetAllRequests(status string, startDate, endDate *time.Time, c
 
 	result := make([]map[string]interface{}, len(requests))
 	for i, req := range requests {
+		// Подсчитываем количество м-м записей с непустым calculated_value
+		completedCount, err := s.repo.CountCompletedEntries(req.ID)
+		if err != nil {
+			completedCount = 0 // В случае ошибки возвращаем 0
+		}
+
 		result[i] = map[string]interface{}{
-			"id":                   req.ID,
-			"status":               req.Status,
-			"creator_id":           req.CreatorID,
-			"site_name":            req.SiteName,
-			"formation_date":       req.FormationDate,
-			"completion_date":      req.CompletionDate,
-			"moderator_id":         req.ModeratorID,
-			"total_finds_quantity": req.TotalFindsQuantity,
+			"id":                      req.ID,
+			"status":                  req.Status,
+			"creator_id":              req.CreatorID,
+			"site_name":               req.SiteName,
+			"formation_date":          req.FormationDate,
+			"completion_date":         req.CompletionDate,
+			"moderator_id":            req.ModeratorID,
+			"completed_entries_count": completedCount,
 		}
 	}
 
@@ -73,15 +84,14 @@ func (s *Service) GetRequestByID(id uint) (map[string]interface{}, error) {
 	}
 
 	return map[string]interface{}{
-		"id":                   request.ID,
-		"status":               request.Status,
-		"creator_id":           request.CreatorID,
-		"site_name":            request.SiteName,
-		"formation_date":       request.FormationDate,
-		"completion_date":      request.CompletionDate,
-		"moderator_id":         request.ModeratorID,
-		"total_finds_quantity": request.TotalFindsQuantity,
-		"entries":              entries,
+		"id":              request.ID,
+		"status":          request.Status,
+		"creator_id":      request.CreatorID,
+		"site_name":       request.SiteName,
+		"formation_date":  request.FormationDate,
+		"completion_date": request.CompletionDate,
+		"moderator_id":    request.ModeratorID,
+		"entries":         entries,
 	}, nil
 }
 
@@ -147,52 +157,77 @@ func (s *Service) CompleteOrRejectRequest(id uint, moderatorID uint, action stri
 	}
 
 	if action == "completed" {
+		log.Printf("Заявка ID: %d одобрена модератором ID: %d", id, moderatorID)
 		entries, err := s.repo.GetEntriesWithArtifacts(id)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve entries: %w", err)
 		}
 
-		if err := s.calculateAndUpdatePercentages(id, entries); err != nil {
-			return fmt.Errorf("failed to calculate percentages: %w", err)
-		}
+		// Запускаем async-расчет для каждой записи (НЕ ждем результата)
+		go s.triggerAsyncCalculations(id, entries)
+	} else {
+		log.Printf("Заявка ID: %d отклонена модератором ID: %d", id, moderatorID)
 	}
 
 	return s.repo.UpdateRequest(id, updates)
 }
 
-func (s *Service) calculateAndUpdatePercentages(requestID uint, entries []analysis_artifact_record.AnalysisArtifactRecord) error {
-	if len(entries) == 0 {
-		return nil
+
+
+// triggerAsyncCalculations вызывает Django-сервис для расчета всех м-м записей
+// Все вычисления процентов выполняются в Django
+func (s *Service) triggerAsyncCalculations(requestID uint, entries []analysis_artifact_record.AnalysisArtifactRecord) {
+	asyncServiceURL := "http://localhost:8001/api/calculate" // URL Django-сервиса
+	
+	log.Printf("Начат расчет для заявки ID: %d (%d артефактов)", requestID, len(entries))
+	
+	// Собираем данные о всех записях для отправки в Django
+	type EntryData struct {
+		ArtifactID       uint   `json:"artifact_id"`
+		ProductionCenter string `json:"production_center"`
+		Quantity         int    `json:"quantity"`
 	}
-
-	// Group quantities by region (production center)
-	regionCounts := make(map[string]int)
-	totalQuantity := 0
-
+	
+	var entryDataList []EntryData
 	for _, entry := range entries {
-		regionCounts[entry.Artifact.ProductionCenter] += entry.Quantity
-		totalQuantity += entry.Quantity
+		entryDataList = append(entryDataList, EntryData{
+			ArtifactID:       entry.ArtifactID,
+			ProductionCenter: entry.Artifact.ProductionCenter,
+			Quantity:         entry.Quantity,
+		})
+	}
+	
+	// Формируем шаблон callback URL (Django заменит {request_id} и {artifact_id})
+	callbackURLTemplate := "http://localhost:8000/api/trade-analysis/{request_id}/entries/{artifact_id}/result"
+	
+	payload := map[string]interface{}{
+		"request_id":   requestID,
+		"entries":      entryDataList,
+		"callback_url": callbackURLTemplate,
 	}
 
-	if totalQuantity == 0 {
-		return nil
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("Failed to marshal payload for async calculation: %v", err)
+		return
 	}
 
-	// Update percentage for each record
-	for _, entry := range entries {
-		regionTotal := regionCounts[entry.Artifact.ProductionCenter]
-		percentage := (float64(regionTotal) / float64(totalQuantity)) * 100
-
-		updates := map[string]interface{}{
-			"percentage": percentage,
+	log.Printf("Отправка данных в Django для обработки...")
+	
+	// HTTP POST к Django (не ждем ответа)
+	go func(data []byte) {
+		resp, err := http.Post(asyncServiceURL, "application/json", bytes.NewBuffer(data))
+		if err != nil {
+			log.Printf("Failed to call async service: %v", err)
+			return
 		}
-
-		if err := s.repo.UpdateAnalysisArtifactRecord(entry.RequestID, entry.ArtifactID, updates); err != nil {
-			return err
+		defer resp.Body.Close()
+		
+		if resp.StatusCode != http.StatusOK {
+			bodyBytes, _ := io.ReadAll(resp.Body)
+			log.Printf("Async service returned non-OK status: %d, body: %s", resp.StatusCode, string(bodyBytes))
 		}
-	}
-
-	return nil
+	}(jsonData)
 }
 
 func (s *Service) DeleteRequest(id uint) error {

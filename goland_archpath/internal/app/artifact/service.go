@@ -15,7 +15,7 @@ type Service interface {
 	Update(id uint, data Artifact) error
 	Delete(id uint) error
 	UploadImage(id uint, file multipart.File, header *multipart.FileHeader) (string, error)
-	AddToDraft(artifactID, creatorID uint, quantity int, comment string) (map[string]interface{}, error)
+	AddToDraft(artifactID, creatorID uint, quantity int) (map[string]interface{}, error)
 }
 
 type MinioClient interface {
@@ -78,19 +78,16 @@ type TradeAnalysisDraft struct {
 
 // AnalysisArtifactRecord represents the many-to-many record
 type AnalysisArtifactRecord struct {
-	RequestID   uint
-	ArtifactID  uint
-	Quantity    int
-	Comment     string
-	Order       int
-	IsMainEntry bool
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	RequestID  uint
+	ArtifactID uint
+	Quantity   int
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // AddToDraft adds an artifact to the user's draft request
 // Заявка создается автоматически с указанием создателя, даты создания и статуса
-func (s *service) AddToDraft(artifactID, creatorID uint, quantity int, comment string) (map[string]interface{}, error) {
+func (s *service) AddToDraft(artifactID, creatorID uint, quantity int) (map[string]interface{}, error) {
 	// Verify artifact exists
 	artifact, err := s.repo.GetByID(artifactID)
 	if err != nil {
@@ -134,7 +131,6 @@ func (s *service) AddToDraft(artifactID, creatorID uint, quantity int, comment s
 			Where("request_id = ? AND artifact_id = ?", requestID, artifactID).
 			Updates(map[string]interface{}{
 				"quantity":   quantity,
-				"comment":    comment,
 				"updated_at": time.Now(),
 			}).Error; err != nil {
 			return nil, fmt.Errorf("failed to update existing record: %w", err)
@@ -150,14 +146,11 @@ func (s *service) AddToDraft(artifactID, creatorID uint, quantity int, comment s
 	
 	// Create new record
 	record := AnalysisArtifactRecord{
-		RequestID:   requestID,
-		ArtifactID:  artifactID,
-		Quantity:    quantity,
-		Comment:     comment,
-		Order:       0,
-		IsMainEntry: false,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		RequestID:  requestID,
+		ArtifactID: artifactID,
+		Quantity:   quantity,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
 	}
 	
 	if err := s.repo.DB.Table("analysis_artifact_records").Create(&record).Error; err != nil {

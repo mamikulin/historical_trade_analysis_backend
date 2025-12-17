@@ -8,10 +8,10 @@ type AnalysisArtifactRecord struct {
 	RequestID   uint      `gorm:"primaryKey" json:"request_id"`
 	ArtifactID  uint      `gorm:"primaryKey" json:"artifact_id"`
 	Quantity    int       `gorm:"not null;default:1" json:"quantity"`
-	Order       int       `gorm:"not null;default:0" json:"order"`
-	IsMainEntry bool      `gorm:"not null;default:false" json:"is_main_entry"`
-	Comment     string    `gorm:"type:text" json:"comment"`
-	Percentage  float64   `gorm:"type:numeric(5,2);default:0" json:"percentage"`
+	
+	// Результат async-расчета (null пока не вычислено)
+	CalculatedValue *float64  `gorm:"type:numeric(10,2)" json:"calculated_value,omitempty"`
+	
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 

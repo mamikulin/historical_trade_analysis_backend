@@ -63,3 +63,16 @@ func (s *Service) DeleteRecord(requestID, artifactID uint) error {
 func (s *Service) DeleteRecordsByRequestID(requestID uint) error {
 	return s.repo.DeleteRecordsByRequestID(requestID)
 }
+
+// UpdateCalculatedValue обновляет calculated_value для записи (вызывается async-сервисом)
+func (s *Service) UpdateCalculatedValue(requestID, artifactID uint, value float64) error {
+	_, err := s.repo.GetRecordByCompositeKey(requestID, artifactID)
+	if err != nil {
+		return fmt.Errorf("record not found: %w", err)
+	}
+
+	updates := map[string]interface{}{
+		"calculated_value": value,
+	}
+	return s.repo.UpdateRecord(requestID, artifactID, updates)
+}

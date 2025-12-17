@@ -261,28 +261,27 @@ func (h *Handler) CompleteOrRejectRequest(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	var body struct {
-		Action string `json:"action"` // "completed" or "rejected"
-	}
+	// Случайно выбираем действие: одобрить или отклонить
+	actions := []string{"completed", "rejected"}
+	randomAction := actions[time.Now().UnixNano()%2]
 
-	err = json.NewDecoder(r.Body).Decode(&body)
-	if err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	err = h.service.CompleteOrRejectRequest(uint(id), userID, body.Action)
+	err = h.service.CompleteOrRejectRequest(uint(id), userID, randomAction)
 	if err != nil {
 		http.Error(w, "Failed to moderate request: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	// Возвращаем полную информацию о заявке со всеми записями
 	request, err := h.service.GetRequestByID(uint(id))
 	if err != nil {
 		http.Error(w, "Failed to retrieve moderated request: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// Добавляем информацию о действии
+	request["action"] = randomAction
+	
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(request)
 }
 

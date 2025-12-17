@@ -86,6 +86,9 @@ func StartServer(
 	aarHandler := analysis_artifact_record.NewHandler(aarService)
 	api.Handle("/analysis-artifact-records/{request_id}/{artifact_id}", middleware.RequireModerator(http.HandlerFunc(aarHandler.UpdateRecord))).Methods("PUT")
 	api.Handle("/analysis-artifact-records/{request_id}/{artifact_id}", middleware.RequireModerator(http.HandlerFunc(aarHandler.DeleteRecord))).Methods("DELETE")
+	
+	// Async callback endpoint (без middleware - использует токен)
+	api.HandleFunc("/trade-analysis/{request_id}/entries/{artifact_id}/result", aarHandler.UpdateCalculatedValue).Methods("PUT")
 
 	addr := ":8000"
 	log.Printf("Server listening on %s\n", addr)

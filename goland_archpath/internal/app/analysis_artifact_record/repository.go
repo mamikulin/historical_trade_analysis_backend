@@ -27,7 +27,7 @@ func (r *Repository) GetRecordByCompositeKey(requestID, artifactID uint) (*Analy
 
 func (r *Repository) GetRecordsByRequestID(requestID uint) ([]AnalysisArtifactRecord, error) {
 	var records []AnalysisArtifactRecord
-	err := r.DB.Where("request_id = ?", requestID).Order("`order` ASC").Find(&records).Error
+	err := r.DB.Where("request_id = ?", requestID).Find(&records).Error
 	return records, err
 }
 
@@ -36,7 +36,6 @@ func (r *Repository) GetRecordsByRequestIDWithArtifacts(requestID uint) ([]Analy
 	err := r.DB.
 		Preload("Artifact").
 		Where("request_id = ?", requestID).
-		Order(`"order" ASC`).
 		Find(&records).Error
 	return records, err
 }
