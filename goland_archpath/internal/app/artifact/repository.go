@@ -26,10 +26,15 @@ func NewRepository(dsn string) (*Repository, error) {
 
 func (r *Repository) GetAll(filters map[string]interface{}) ([]Artifact, error) {
 	var artifacts []Artifact
-	query := r.DB.Model(&Artifact{})
+	query := r.DB.Model(&Artifact{}).Where("deleted_at IS NULL")
 
 	for key, value := range filters {
-		query = query.Where(key+" = ?", value)
+		if key == "name" || key == "description" {
+			// Use LIKE for text search
+			query = query.Where(key+" ILIKE ?", "%"+value.(string)+"%")
+		} else {
+			query = query.Where(key+" = ?", value)
+		}
 	}
 
 	if err := query.Find(&artifacts).Error; err != nil {
@@ -41,7 +46,7 @@ func (r *Repository) GetAll(filters map[string]interface{}) ([]Artifact, error) 
 
 func (r *Repository) GetByID(id uint) (*Artifact, error) {
     var artifact Artifact
-    if err := r.DB.First(&artifact, id).Error; err != nil {
+    if err := r.DB.Where("id = ? AND deleted_at IS NULL", id).First(&artifact).Error; err != nil {
         return nil, err
     }
     return &artifact, nil

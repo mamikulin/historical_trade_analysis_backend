@@ -3,6 +3,7 @@ package artifact
 import (
 	"archpath/internal/middleware"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -37,6 +38,7 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 // @Failure 500 {string} string "Failed to retrieve artifacts"
 // @Router /artifacts [get]
 func (h *Handler) GetAll(w http.ResponseWriter, r *http.Request) {
+	log.Printf("GetAll called: %s %s", r.Method, r.URL.Path)
 	filters := map[string]interface{}{}
 
 	if isActive := r.URL.Query().Get("is_active"); isActive != "" {
@@ -44,6 +46,12 @@ func (h *Handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	}
 	if center := r.URL.Query().Get("production_center"); center != "" {
 		filters["production_center"] = center
+	}
+	// Support both 'query' and 'search' parameters
+	if query := r.URL.Query().Get("query"); query != "" && len(query) > 0 {
+		filters["name"] = query
+	} else if search := r.URL.Query().Get("search"); search != "" && len(search) > 0 {
+		filters["name"] = search
 	}
 
 	artifacts, err := h.service.GetAll(filters)
@@ -65,6 +73,7 @@ func (h *Handler) GetAll(w http.ResponseWriter, r *http.Request) {
 // @Failure 404 {string} string "Artifact not found"
 // @Router /artifacts/{id} [get]
 func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
+	log.Printf("GetByID called: %s %s, id=%s", r.Method, r.URL.Path, mux.Vars(r)["id"])
 	id, _ := strconv.Atoi(mux.Vars(r)["id"])
 	artifact, err := h.service.GetByID(uint(id))
 	if err != nil {
@@ -192,7 +201,9 @@ func (h *Handler) UploadImage(w http.ResponseWriter, r *http.Request) {
 // @Security CookieAuth
 // @Router /artifacts/{id}/add-to-analysis [post]
 func (h *Handler) AddToDraft(w http.ResponseWriter, r *http.Request) {
+	log.Printf("AddToDraft called: %s %s", r.Method, r.URL.Path)
 	artifactID, _ := strconv.Atoi(mux.Vars(r)["id"])
+	log.Printf("Attempting to add artifact ID: %d", artifactID)
 	
 	userID, ok := middleware.GetUserIDFromContext(r.Context())
 	if !ok {
@@ -219,6 +230,7 @@ func (h *Handler) AddToDraft(w http.ResponseWriter, r *http.Request) {
 	
 	result, err := h.service.AddToDraft(uint(artifactID), userID, body.Quantity, body.Comment)
 	if err != nil {
+		log.Printf("Failed to add artifact %d to draft: %v", artifactID, err)
 		http.Error(w, "Failed to add to draft: "+err.Error(), http.StatusInternalServerError)
 		return
 	}

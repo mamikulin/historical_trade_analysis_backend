@@ -35,6 +35,9 @@ func StartServer(
 
 	r := mux.NewRouter()
 
+	// Применяем CORS middleware первым
+	r.Use(middleware.CORSMiddleware)
+
 	// Swagger UI (публичный доступ)
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
@@ -87,7 +90,18 @@ func StartServer(
 	addr := ":8000"
 	log.Printf("Server listening on %s\n", addr)
 	log.Printf("Swagger UI available at http://localhost%s/swagger/index.html\n", addr)
-	if err := http.ListenAndServe(addr, r); err != nil {
-		log.Fatalf("Server failed: %v", err)
-	}
+	
+	// Для HTTPS раскомментируйте следующие строки и создайте сертификаты через mkcert
+	// certFile := os.Getenv("TLS_CERT")
+	// keyFile := os.Getenv("TLS_KEY")
+	// if certFile != "" && keyFile != "" {
+	// 	log.Printf("Starting HTTPS server on %s\n", addr)
+	// 	if err := http.ListenAndServeTLS(addr, certFile, keyFile, r); err != nil {
+	// 		log.Fatalf("Server failed: %v", err)
+	// 	}
+	// } else {
+		if err := http.ListenAndServe(addr, r); err != nil {
+			log.Fatalf("Server failed: %v", err)
+		}
+	// }
 }
