@@ -14,4 +14,5 @@ type TradeAnalysis struct {
 	CompletionDate *time.Time `json:"completion_date"`
 	ModeratorID    *uint      `json:"moderator_id"`
 	CompletedEntriesCount int64 `gorm:"default:0" json:"completed_entries_count"`
+	CalculatedEntriesCount int64 `gorm:"-" json:"calculated_entries_count"`
 }

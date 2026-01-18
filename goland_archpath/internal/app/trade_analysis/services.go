@@ -51,21 +51,21 @@ func (s *Service) GetAllRequests(status string, startDate, endDate *time.Time, c
 
 	result := make([]map[string]interface{}, len(requests))
 	for i, req := range requests {
-		// Подсчитываем количество м-м записей с непустым calculated_value
-		completedCount, err := s.repo.CountCompletedEntries(req.ID)
+		// Подсчитываем количество записей с calculated_value
+		calculatedCount, err := s.repo.CountCompletedEntries(req.ID)
 		if err != nil {
-			completedCount = 0 // В случае ошибки возвращаем 0
+			calculatedCount = 0
 		}
 
 		result[i] = map[string]interface{}{
-			"id":                      req.ID,
-			"status":                  req.Status,
-			"creator_id":              req.CreatorID,
-			"site_name":               req.SiteName,
-			"formation_date":          req.FormationDate,
-			"completion_date":         req.CompletionDate,
-			"moderator_id":            req.ModeratorID,
-			"completed_entries_count": completedCount,
+			"id":                       req.ID,
+			"status":                   req.Status,
+			"creator_id":               req.CreatorID,
+			"site_name":                req.SiteName,
+			"formation_date":           req.FormationDate,
+			"completion_date":          req.CompletionDate,
+			"moderator_id":             req.ModeratorID,
+			"calculated_entries_count": calculatedCount,
 		}
 	}
 
@@ -83,15 +83,22 @@ func (s *Service) GetRequestByID(id uint) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("failed to retrieve entries: %w", err)
 	}
 
+	// Подсчитываем количество записей с calculated_value
+	calculatedCount, err := s.repo.CountCompletedEntries(id)
+	if err != nil {
+		calculatedCount = 0
+	}
+
 	return map[string]interface{}{
-		"id":              request.ID,
-		"status":          request.Status,
-		"creator_id":      request.CreatorID,
-		"site_name":       request.SiteName,
-		"formation_date":  request.FormationDate,
-		"completion_date": request.CompletionDate,
-		"moderator_id":    request.ModeratorID,
-		"entries":         entries,
+		"id":                       request.ID,
+		"status":                   request.Status,
+		"creator_id":               request.CreatorID,
+		"site_name":                request.SiteName,
+		"formation_date":           request.FormationDate,
+		"completion_date":          request.CompletionDate,
+		"moderator_id":             request.ModeratorID,
+		"entries":                  entries,
+		"calculated_entries_count": calculatedCount,
 	}, nil
 }
 
