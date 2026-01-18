@@ -21,10 +21,10 @@ func CORSMiddleware(next http.Handler) http.Handler {
                 strings.HasPrefix(origin, "http://172.16.") || 
                 strings.HasPrefix(origin, "https://172.16.") ||
                 strings.HasPrefix(origin, "http://172.20.") || 
+                strings.HasSuffix(origin, ".github.io") ||
                 strings.HasPrefix(origin, "tauri://") ||
                 strings.HasPrefix(origin, "http://tauri.") ||
-                strings.HasPrefix(origin, "https://tauri.") ||
-                strings.HasPrefix(origin, "https://mamikulin.github.io"){
+                strings.HasPrefix(origin, "https://tauri.") {
                 w.Header().Set("Access-Control-Allow-Origin", origin)
                 w.Header().Set("Vary", "Origin")
             }

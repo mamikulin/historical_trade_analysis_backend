@@ -32,7 +32,6 @@ func (h *Handler) RegisterRoutes(r *mux.Router) {
 // @Description Get all artifacts with optional filters
 // @Tags artifacts
 // @Produce json
-// @Param is_active query boolean false "Filter by active status"
 // @Param production_center query string false "Filter by production center"
 // @Success 200 {array} Artifact
 // @Failure 500 {string} string "Failed to retrieve artifacts"
@@ -41,9 +40,6 @@ func (h *Handler) GetAll(w http.ResponseWriter, r *http.Request) {
 	log.Printf("GetAll called: %s %s", r.Method, r.URL.Path)
 	filters := map[string]interface{}{}
 
-	if isActive := r.URL.Query().Get("is_active"); isActive != "" {
-		filters["is_active"] = (isActive == "true")
-	}
 	if center := r.URL.Query().Get("production_center"); center != "" {
 		filters["production_center"] = center
 	}

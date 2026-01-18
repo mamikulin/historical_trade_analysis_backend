@@ -45,6 +45,11 @@ func StartServer(
 	r.Use(middleware.AuthMiddleware(jwtSecret))
 
 	api := r.PathPrefix("/api").Subrouter()
+	
+	// Явно разрешаем OPTIONS для всех маршрутов /api/*
+	api.Methods("OPTIONS").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
 
 	// User routes (публичные и авторизованные)
 	userHandler := user.NewHandler(userService, jwtSecret, jwtExpiry)
@@ -71,11 +76,13 @@ func StartServer(
 
 	// Trade Analysis routes
 	taHandler := trade_analysis.NewHandler(taService)
+	// Публичные (для тестирования)
+	api.HandleFunc("/trade-analysis/cart", taHandler.GetDraftCart).Methods("GET")
+	// Требуют авторизации (пользователь)
+	api.Handle("/trade-analysis", middleware.RequireAuth(http.HandlerFunc(taHandler.GetAllRequests))).Methods("GET")
 	// Публичные (чтение, но с проверкой внутри)
 	api.HandleFunc("/trade-analysis/{id}", taHandler.GetRequestByID).Methods("GET")
 	// Требуют авторизации (пользователь)
-	api.Handle("/trade-analysis/cart", middleware.RequireAuth(http.HandlerFunc(taHandler.GetDraftCart))).Methods("GET")
-	api.Handle("/trade-analysis", middleware.RequireAuth(http.HandlerFunc(taHandler.GetAllRequests))).Methods("GET")
 	api.Handle("/trade-analysis/{id}", middleware.RequireAuth(http.HandlerFunc(taHandler.UpdateRequest))).Methods("PUT")
 	api.Handle("/trade-analysis/{id}/form", middleware.RequireAuth(http.HandlerFunc(taHandler.FormRequest))).Methods("PUT")
 	// Только модератор

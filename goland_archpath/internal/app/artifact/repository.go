@@ -26,7 +26,7 @@ func NewRepository(dsn string) (*Repository, error) {
 
 func (r *Repository) GetAll(filters map[string]interface{}) ([]Artifact, error) {
 	var artifacts []Artifact
-	query := r.DB.Model(&Artifact{}).Where("deleted_at IS NULL")
+	query := r.DB.Model(&Artifact{})
 
 	for key, value := range filters {
 		if key == "name" || key == "description" {
@@ -46,7 +46,7 @@ func (r *Repository) GetAll(filters map[string]interface{}) ([]Artifact, error) 
 
 func (r *Repository) GetByID(id uint) (*Artifact, error) {
     var artifact Artifact
-    if err := r.DB.Where("id = ? AND deleted_at IS NULL", id).First(&artifact).Error; err != nil {
+    if err := r.DB.Where("id = ?", id).First(&artifact).Error; err != nil {
         return nil, err
     }
     return &artifact, nil
